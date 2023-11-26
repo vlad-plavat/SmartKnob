@@ -15,6 +15,8 @@ add_compile_options(
     -Wextra
 )
 
+add_subdirectory(MT6701)
+
 add_executable(SmartKnob
     SmartKnob.c
 )
@@ -40,6 +42,7 @@ target_link_libraries(SmartKnob pico_stdlib
                         hardware_pio
                         hardware_pwm
                         hardware_adc
+                        MT6701
                         #tinyusb_device
                         #tinyusb_board
                         )

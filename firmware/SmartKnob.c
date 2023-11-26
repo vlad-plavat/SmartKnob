@@ -1,22 +1,22 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
-#include "hardware/gpio.h"
+#include <pico/bootrom.h>
+#include "MT6701.h"
+#include "utils.h"
 
-const uint LEDPIN = 25;
+uint32_t knob_angle;
 
-int main()
-{
-	stdio_init_all();
-	
-	gpio_init(LEDPIN);
-	gpio_set_dir(LEDPIN, GPIO_OUT);
-	
-	while (1)
-	{
-		gpio_put(LEDPIN, 1);
-		sleep_ms(500);
-		gpio_put(LEDPIN, 0);
-		puts("Hello, World!\n");
-		sleep_ms(500);
-	}
+int main() {
+    CHECKBUTTON
+    stdio_init_all();
+    while(!stdio_usb_connected());
+
+    MT6701_init(&knob_angle);
+
+    while(1){
+        CHECKOUT;
+        printf("angle: %f\n", knob_angle*360.0/(16*1024));
+        sleep_ms(50);
+    }
+    return 0;
 }

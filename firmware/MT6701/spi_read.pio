@@ -1,0 +1,43 @@
+.program spi_read
+.side_set 2
+
+;side-set CLK
+;set      CSN
+;y contains number of bits-1
+;in case we want all 24 bits to check CRC
+
+.wrap_target
+    set pins, 0        side 1
+    mov x, y           side 0
+    nop                side 1
+bitloop:
+    in pins, 1         side 0
+    jmp x-- bitloop    side 1
+
+    set pins, 1        side 1
+
+.wrap
+
+% c-sdk {
+#include "hardware/gpio.h"
+static inline void spi_read_init(PIO pio, uint sm, uint prog_offs, float clkdiv, uint n_bits, uint pin_sck, uint pin_cs, uint pin_dat) {
+    pio_sm_config c = spi_read_program_get_default_config(prog_offs);
+    sm_config_set_in_pins(&c, pin_dat);
+    sm_config_set_sideset_pins(&c, pin_sck);
+    sm_config_set_set_pins(&c, pin_cs, 1);
+    sm_config_set_in_shift(&c, false, true, n_bits);
+    sm_config_set_clkdiv(&c, clkdiv);//~20.83MHz => SPI@10MHz
+
+    pio_sm_set_pins_with_mask(pio, sm, (1 << pin_sck) | (1 << pin_cs), (1 << pin_sck) | (1 << pin_cs));
+    pio_sm_set_pindirs_with_mask(pio, sm, (1 << pin_sck) | (1 << pin_cs), (1 << pin_sck) | (1 << pin_cs) | (1 << pin_dat));
+    pio_gpio_init(pio, pin_cs);
+    pio_gpio_init(pio, pin_dat);
+    pio_gpio_init(pio, pin_sck);
+    
+    //hw_set_bits(&pio->input_sync_bypass, 1u << pin_miso);
+
+    pio_sm_init(pio, sm, prog_offs, &c);
+    pio_sm_exec(pio, sm, pio_encode_set(pio_y, n_bits - 1));
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}
