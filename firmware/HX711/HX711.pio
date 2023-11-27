@@ -1,0 +1,37 @@
+.program hx711
+.side_set 1
+
+;side-set CLK
+;in       DAT
+
+.define public NBITS 24
+
+.wrap_target
+    wait 0 pin 0       side 0
+    set x, (NBITS-1)   side 1
+bitloop:
+    in pins, 1         side 0
+    jmp x-- bitloop    side 1
+
+.wrap
+
+% c-sdk {
+#include "hardware/clocks.h"
+
+static inline void hx711_program_init(PIO pio, uint sm, uint prog_offs, uint pin_sck, uint pin_dat) {
+
+    pio_sm_config c = hx711_program_get_default_config(prog_offs);
+    sm_config_set_in_pins(&c, pin_dat);
+    sm_config_set_sideset_pins(&c, pin_sck);
+    sm_config_set_in_shift(&c, false, true, 24);
+    sm_config_set_clkdiv(&c, 31);//~4MHz => CLK@2MHz (2.5 is max)
+
+    pio_sm_set_pins_with_mask(pio, sm, (1 << pin_sck), (1 << pin_sck));
+    pio_sm_set_pindirs_with_mask(pio, sm, (1 << pin_sck), (1 << pin_sck) | (1 << pin_dat));
+    pio_gpio_init(pio, pin_dat);
+    pio_gpio_init(pio, pin_sck);
+
+    pio_sm_init(pio, sm, prog_offs, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}

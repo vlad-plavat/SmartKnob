@@ -17,6 +17,7 @@ add_compile_options(
 
 add_subdirectory(MT6701)
 add_subdirectory(WS2812)
+add_subdirectory(HX711)
 
 add_executable(SmartKnob
     SmartKnob.c
@@ -45,6 +46,7 @@ target_link_libraries(SmartKnob pico_stdlib
                         hardware_adc
                         MT6701
                         WS2812
+                        HX711
                         #tinyusb_device
                         #tinyusb_board
                         )

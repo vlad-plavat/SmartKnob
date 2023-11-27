@@ -1,5 +1,5 @@
 .program spi_read
-.side_set 2
+.side_set 1
 
 ;side-set CLK
 ;set      CSN
@@ -33,8 +33,6 @@ static inline void spi_read_init(PIO pio, uint sm, uint prog_offs, float clkdiv,
     pio_gpio_init(pio, pin_cs);
     pio_gpio_init(pio, pin_dat);
     pio_gpio_init(pio, pin_sck);
-    
-    //hw_set_bits(&pio->input_sync_bypass, 1u << pin_miso);
 
     pio_sm_init(pio, sm, prog_offs, &c);
     pio_sm_exec(pio, sm, pio_encode_set(pio_y, n_bits - 1));

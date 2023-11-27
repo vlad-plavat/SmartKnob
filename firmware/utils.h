@@ -1,7 +1,7 @@
 #ifndef _UTILS_H
 #define _UTILS_H
 
-#define CHECKOUT if(getchar_timeout_us(1) != PICO_ERROR_TIMEOUT){\
+#define CHECK_SERIAL_QUIT if(getchar_timeout_us(1) != PICO_ERROR_TIMEOUT){\
             printf("\n\nBOOTING FROM USB\n\n");\
             sleep_ms(20);\
             reset_usb_boot(0,0);\
