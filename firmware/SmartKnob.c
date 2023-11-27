@@ -17,11 +17,11 @@ int main(){
     MT6701_init(&knob_angle);
     WS2812_init();
     HX711_init();
-    Motor_init();
+    Motor_init(&knob_angle);
 
 
     while(1){
-        CHECK_SERIAL_QUIT;
+        CHECK_SERIAL_QUIT
         WS2812_refresh(knob_angle);
         sleep_ms(10);
         HX711_update();
