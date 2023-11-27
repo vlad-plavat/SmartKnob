@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "mt6701.h": "c",
-        "hx711.h": "c"
+        "hx711.h": "c",
+        "ws2812.h": "c"
     }
 }
