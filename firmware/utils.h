@@ -15,6 +15,10 @@
                         reset_usb_boot(0,0);\
                     }
 
+char _tmp_string_dprintf[100];
+#define dprintf(...) {sprintf(_tmp_string_dprintf, __VA_ARGS__);\
+                     tud_cdc_write(_tmp_string_dprintf, strlen(_tmp_string_dprintf));}
+
 #define D sleep_ms(1);
 
 #define REP10(X) X X X X X X X X X X

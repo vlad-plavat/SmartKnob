@@ -13,6 +13,7 @@ static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
 
 void led_blinking_task(void);
 void cdc_task(void);
+void hid_task(void);
 
 struct repeating_timer timer;
 
@@ -37,7 +38,7 @@ void service_usb(){
         checkBIOSloaded();
     }*/
     cdc_task();
-
+    hid_task();
 }
 
 //--------------------------------------------------------------------+
@@ -119,6 +120,173 @@ void tud_cdc_rx_cb(uint8_t itf)
 {
   (void) itf;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//--------------------------------------------------------------------+
+// USB HID
+//--------------------------------------------------------------------+
+
+static void send_hid_report(uint8_t report_id, uint32_t btn)
+{
+  // skip if hid is not ready yet
+  if ( !tud_hid_ready() ) return;
+
+  if (report_id == REPORT_ID_GAMEPAD)
+  {
+      // use to avoid send multiple consecutive zero report for keyboard
+      static bool has_gamepad_key = false;
+
+//extern int32_t Xtilt, Ytilt, Press;
+dprintf("%ld %ld %ld\n",Xtilt, Ytilt, Press);
+      int16_t Xval = abs(Xtilt/24)>64?Xtilt/24:0;
+      int16_t Yval = (Ytilt>0?Ytilt/32:Ytilt/16);
+      Yval = abs(Yval)>64?Yval:0;
+      if ( Xval > 127 ) Xval=127;
+      if ( Yval > 127 ) Yval=127;
+      if ( Xval < -128) Xval=-128;
+      if ( Yval < -128) Yval=-128;
+
+      static uint32_t prevprtm = 0;
+      static uint8_t prevpr = 0;
+      uint8_t crpr = Press>2000;
+      uint8_t btn2 = true;
+      if(!prevpr && crpr){
+        prevprtm  = time_us_32();
+      }
+      if(time_us_32() - prevprtm > 100*1000){
+        btn2=false;
+        prevprtm = time_us_32()+101*1000;
+      }
+      prevpr = crpr;
+
+      hid_gamepad_report_t report =
+      {
+        .x   = Xval, .y = Yval, .z = 0, .rz = 0, .rx = 0, .ry = 0,
+        .hat = 0, .buttons = (Press>2000?GAMEPAD_BUTTON_A:0)|(btn2?GAMEPAD_BUTTON_1:0)
+      };
+
+      tud_hid_report(REPORT_ID_GAMEPAD, &report, sizeof(report));
+      /*if ( btn )
+      {
+        report.hat = GAMEPAD_HAT_UP;
+        report.buttons = GAMEPAD_BUTTON_A;
+        tud_hid_report(REPORT_ID_GAMEPAD, &report, sizeof(report));
+
+        has_gamepad_key = true;
+      }else
+      {
+        report.hat = GAMEPAD_HAT_CENTERED;
+        report.buttons = 0;
+        if (has_gamepad_key) tud_hid_report(REPORT_ID_GAMEPAD, &report, sizeof(report));
+        has_gamepad_key = false;
+      }*/
+  }
+}
+
+// Every 10ms, we will sent 1 report for each HID profile (keyboard, mouse etc ..)
+// tud_hid_report_complete_cb() is used to send the next report after previous one is complete
+void hid_task(void)
+{
+  // Poll every 10ms
+  const uint32_t interval_ms = 10;
+  static uint32_t start_ms = 0;
+
+  if ( board_millis() - start_ms < interval_ms) return; // not enough time
+  start_ms += interval_ms;
+
+  uint32_t const btn = /*board_button_read()*/(time_us_32()/1000000)%2;
+
+  // Remote wakeup
+  if ( tud_suspended() && btn )
+  {
+    // Wake up host if we are in suspend mode
+    // and REMOTE_WAKEUP feature is enabled by host
+    tud_remote_wakeup();
+  }else
+  {
+    // Send the 1st of report chain, the rest will be sent by tud_hid_report_complete_cb()
+    send_hid_report(REPORT_ID_GAMEPAD, btn);
+  }
+}
+
+// Invoked when sent REPORT successfully to host
+// Application can use this to send the next report
+// Note: For composite reports, report[0] is report ID
+void tud_hid_report_complete_cb(uint8_t instance, uint8_t const* report, uint16_t len)
+{
+  (void) instance;
+  (void) len;
+
+  uint8_t next_report_id = report[0] + 1u;
+
+  if (next_report_id < REPORT_ID_COUNT)
+  {
+    send_hid_report(next_report_id, (time_us_32()/1000000)%2);
+  }
+}
+
+// Invoked when received GET_REPORT control request
+// Application must fill buffer report's content and return its length.
+// Return zero will cause the stack to STALL request
+uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t* buffer, uint16_t reqlen)
+{
+  // TODO not Implemented
+  (void) instance;
+  (void) report_id;
+  (void) report_type;
+  (void) buffer;
+  (void) reqlen;
+
+  return 0;
+}
+
+// Invoked when received SET_REPORT control request or
+// received data on OUT endpoint ( Report ID = 0, Type = 0 )
+void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize)
+{
+  (void) instance;
+  (void) report_id;
+  (void) report_type;
+  (void) buffer;
+  (void) bufsize;
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 //--------------------------------------------------------------------+
