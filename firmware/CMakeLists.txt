@@ -26,17 +26,12 @@ add_executable(SmartKnob
 
 target_sources(SmartKnob PUBLIC
         ${CMAKE_CURRENT_LIST_DIR}/SmartKnob.c
-        #${CMAKE_CURRENT_LIST_DIR}/usb_descriptors.c
+        ${CMAKE_CURRENT_LIST_DIR}/usb_descriptors.c
         )
 
 target_include_directories(SmartKnob PUBLIC
         ${CMAKE_CURRENT_LIST_DIR})
 
-
-
-#pico_generate_pio_header(SmartKnob ${CMAKE_CURRENT_LIST_DIR}/lcd.pio)
-#pico_generate_pio_header(SmartKnob ${CMAKE_CURRENT_LIST_DIR}/ws2812.pio)
-#pico_generate_pio_header(SmartKnob ${CMAKE_CURRENT_LIST_DIR}/spi_read.pio)
 
 # Add pico_stdlib library which aggregates commonly used features
 target_link_libraries(SmartKnob pico_stdlib 
@@ -49,10 +44,10 @@ target_link_libraries(SmartKnob pico_stdlib
                         WS2812
                         HX711
                         Motor
-                        #tinyusb_device
-                        #tinyusb_board
+                        tinyusb_device
+                        tinyusb_board
                         )
-pico_enable_stdio_usb(SmartKnob 1)
+pico_enable_stdio_usb(SmartKnob 0)
 pico_enable_stdio_uart(SmartKnob 0)
 # create map/bin/hex/uf2 file in addition to ELF.
 pico_add_extra_outputs(SmartKnob)

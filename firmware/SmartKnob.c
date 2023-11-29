@@ -6,19 +6,18 @@
 #include "WS2812.h"
 #include "HX711.h"
 #include "Motor.h"
+#include "usb.h"
 
 uint32_t knob_angle;
 
 int main(){
     CHECKBUTTON
-    stdio_init_all();
-    while(!stdio_usb_connected());
 
     MT6701_init(&knob_angle);
     WS2812_init();
     HX711_init();
     Motor_init(&knob_angle);
-
+    tusb_init();
 
     while(1){
         CHECK_SERIAL_QUIT
@@ -29,6 +28,7 @@ int main(){
         Motor_task();
         //printf("angle: %f\n", knob_angle*360.0/(16*1024));
         //sleep_ms(50);
+        service_usb();
     }
     return 0;
 }
