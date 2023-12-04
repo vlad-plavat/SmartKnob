@@ -23,14 +23,19 @@ int main(){
     tusb_init();
     init_boot_button();
 
+    int millis=0;
     while(1){
-        WS2812_refresh(knob_angle);
-        sleep_ms(10);
-        HX711_update();
-        //Motor_task();
         GC9A01_update(dbgprintf, service_usb, knob_angle);
-        service_usb();
-        check_boot_button();
+        WS2812_refresh(knob_angle);
+        if(millis==10){
+            millis=0;
+            HX711_update();
+            //Motor_task();
+            service_usb();
+            check_boot_button();
+        }
+        sleep_ms(1);
+        millis++;
     }
     return 0;
 }
