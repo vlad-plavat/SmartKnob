@@ -139,7 +139,9 @@ void tud_cdc_rx_cb(uint8_t itf)
 
 
 
-
+int abs(int x){
+  return x<0?-x:x;
+}
 
 //--------------------------------------------------------------------+
 // USB HID
@@ -147,19 +149,22 @@ void tud_cdc_rx_cb(uint8_t itf)
 
 static void send_hid_report(uint8_t report_id, uint32_t btn)
 {
+  (void)btn;
   // skip if hid is not ready yet
   if ( !tud_hid_ready() ) return;
 
   if (report_id == REPORT_ID_GAMEPAD)
   {
       // use to avoid send multiple consecutive zero report for keyboard
-      static bool has_gamepad_key = false;
+      //static bool has_gamepad_key = false;
 
 //extern int32_t Xtilt, Ytilt, Press;
-dprintf("%ld %ld %ld\n",Xtilt, Ytilt, Press);
-      int16_t Xval = abs(Xtilt/24)>64?Xtilt/24:0;
-      int16_t Yval = (Ytilt>0?Ytilt/32:Ytilt/16);
-      Yval = abs(Yval)>64?Yval:0;
+//dbgprintf("%ld %ld %ld\n",Xtilt, Ytilt, Press);
+      int16_t Yval = (Ytilt>0?-Ytilt/32:-Ytilt/16);
+      int16_t Xval = -Xtilt/20+25;
+      if(!(abs(-Xtilt/24)>64 || abs(Yval)>64)){
+        Xval = Yval = 0;
+      }
       if ( Xval > 127 ) Xval=127;
       if ( Yval > 127 ) Yval=127;
       if ( Xval < -128) Xval=-128;
@@ -167,7 +172,7 @@ dprintf("%ld %ld %ld\n",Xtilt, Ytilt, Press);
 
       static uint32_t prevprtm = 0;
       static uint8_t prevpr = 0;
-      uint8_t crpr = Press>2000;
+      uint8_t crpr = Press>1700;
       uint8_t btn2 = true;
       if(!prevpr && crpr){
         prevprtm  = time_us_32();

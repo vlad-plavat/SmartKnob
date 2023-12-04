@@ -3,6 +3,9 @@
         "mt6701.h": "c",
         "hx711.h": "c",
         "ws2812.h": "c",
-        "motor.h": "c"
+        "motor.h": "c",
+        "chrono": "cpp",
+        "gc9a01.h": "c",
+        "gc9a01_helpers.h": "c"
     }
 }

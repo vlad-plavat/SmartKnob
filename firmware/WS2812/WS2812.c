@@ -15,7 +15,6 @@ uint WS2812_dma;
 uint32_t ring[16]={0x0f0f0f,0,0,0,0x0f0000,0,0,0, 0x000f00,0,0,0,0x00000f};
 uint32_t WS2812_data[16];
 
-
 void WS2812_refresh(uint r){
     for (int i = 0; i < NUM_PIXELS; ++i) {
         WS2812_data[i] = (ring[ (i+r*16/(1024*16)) % NUM_PIXELS])<<8;

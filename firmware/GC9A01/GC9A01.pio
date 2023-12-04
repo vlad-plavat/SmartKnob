@@ -1,0 +1,34 @@
+.program GC9A01
+.side_set 1
+
+.wrap_target
+    out PINS, 1       side 0; Side-set still takes place when instruction stalls
+    nop               side 1;
+.wrap
+    
+% c-sdk {
+#include "hardware/clocks.h"
+
+static inline void GC9A01_program_init(PIO pio, uint sm, uint initial_pc, uint clk_pin, uint dat_pin) {
+    
+    pio_sm_set_enabled(pio, sm, false);
+
+    pio_sm_set_consecutive_pindirs(pio, sm, dat_pin, 1, true);
+    pio_sm_set_consecutive_pindirs(pio, sm, clk_pin, 1, true);
+    pio_sm_set_pins_with_mask(pio, sm, 0, 1<<clk_pin);//make sure clk pin will be 0
+
+    pio_sm_config c = GC9A01_program_get_default_config(initial_pc);
+    sm_config_set_sideset_pins(&c, clk_pin);
+    sm_config_set_out_pins(&c, dat_pin, 1);
+    sm_config_set_out_shift(&c, false, true, 16);
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+
+    sm_config_set_clkdiv(&c, 1.0f);
+
+    pio_sm_init(pio, sm, initial_pc, &c);
+    pio_sm_set_enabled(pio, sm, true);//will command clk to go low
+
+    pio_gpio_init(pio, dat_pin);
+    pio_gpio_init(pio, clk_pin);//the value should be 0
+}
+%}

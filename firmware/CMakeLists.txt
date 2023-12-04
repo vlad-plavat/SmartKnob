@@ -15,14 +15,17 @@ add_compile_options(
     -Wextra
 )
 
+
 add_subdirectory(MT6701)
 add_subdirectory(WS2812)
 add_subdirectory(HX711)
 add_subdirectory(Motor)
+add_subdirectory(GC9A01)
 
 add_executable(SmartKnob
     SmartKnob.c
 )
+pico_set_binary_type(SmartKnob blocked_ram)
 
 target_sources(SmartKnob PUBLIC
         ${CMAKE_CURRENT_LIST_DIR}/SmartKnob.c
@@ -44,6 +47,7 @@ target_link_libraries(SmartKnob pico_stdlib
                         WS2812
                         HX711
                         Motor
+                        GC9A01
                         tinyusb_device
                         tinyusb_board
                         )
