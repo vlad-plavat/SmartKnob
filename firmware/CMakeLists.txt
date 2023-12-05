@@ -25,6 +25,9 @@ add_subdirectory(GC9A01)
 add_executable(SmartKnob
     SmartKnob.c
 )
+#pico_set_linker_script(SmartKnob banked_custom.ld)
+set_target_properties(SmartKnob PROPERTIES PICO_TARGET_LINKER_SCRIPT 
+    ${CMAKE_SOURCE_DIR}/banked_custom.ld)
 pico_set_binary_type(SmartKnob blocked_ram)
 
 target_sources(SmartKnob PUBLIC
@@ -43,6 +46,7 @@ target_link_libraries(SmartKnob pico_stdlib
                         hardware_pio
                         hardware_pwm
                         hardware_adc
+                        pico_multicore
                         MT6701
                         WS2812
                         HX711

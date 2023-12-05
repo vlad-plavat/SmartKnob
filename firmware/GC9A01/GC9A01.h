@@ -10,7 +10,7 @@
 
 #define GC9A01_PIO pio1
 
-void GC9A01_update(void (*prt)(const char*, ...), void (*usb)(void), uint32_t knob_angle);
+void __not_in_flash_func(GC9A01_run)();
 void GC9A01_init();
 
 #endif

@@ -3,7 +3,7 @@
 
 #define D
 
-static inline void write(uint8_t data){
+static inline void __not_in_flash_func(write)(uint8_t data){
     for(uint8_t m=0x80;m;m=m>>1){
             gpio_put(GC9A01_CLK,0); gpio_put(GC9A01_DAT,data&m); D
             gpio_put(GC9A01_CLK,1); D
@@ -11,7 +11,7 @@ static inline void write(uint8_t data){
         gpio_put(GC9A01_CLK,0);
 }
 
-static inline void Write_Cmd(uint8_t cmd){
+static inline void __not_in_flash_func(Write_Cmd)(uint8_t cmd){
     gpio_put(GC9A01_D_C,0);
     gpio_put(GC9A01_CSN,0); D
     gpio_set_dir(GC9A01_DAT,GPIO_OUT);
@@ -19,7 +19,7 @@ static inline void Write_Cmd(uint8_t cmd){
     gpio_put(GC9A01_CSN,1);
 }
 
-static inline void Write_Cmd_Data(uint8_t data){
+static inline void __not_in_flash_func(Write_Cmd_Data)(uint8_t data){
     gpio_put(GC9A01_D_C,1);
     gpio_put(GC9A01_CSN,0); D
     gpio_set_dir(GC9A01_DAT,GPIO_OUT);
@@ -28,7 +28,7 @@ static inline void Write_Cmd_Data(uint8_t data){
 }
 
 
-static inline void  Write_Data_U16(uint16_t y)
+static inline void  __not_in_flash_func(Write_Data_U16)(uint16_t y)
 {
 	unsigned char m,n;
 	m=y>>8;
@@ -36,7 +36,7 @@ static inline void  Write_Data_U16(uint16_t y)
 	Write_Cmd_Data(m);
 	Write_Cmd_Data(n);
 }
-static inline void LCD_SetPos(unsigned int Xstart,unsigned int Ystart,unsigned int Xend,unsigned int Yend)
+static inline void __not_in_flash_func(LCD_SetPos)(unsigned int Xstart,unsigned int Ystart,unsigned int Xend,unsigned int Yend)
 {
 	Write_Cmd(0x2a);   
 	Write_Cmd_Data(Xstart>>8);
@@ -53,13 +53,13 @@ static inline void LCD_SetPos(unsigned int Xstart,unsigned int Ystart,unsigned i
   	Write_Cmd(0x2c);//LCD_WriteCMD(GRAMWR);
 }
 
-static inline void LCD_DrawPoint(unsigned int x,unsigned int y,unsigned int color)
+static inline void __not_in_flash_func(LCD_DrawPoint)(unsigned int x,unsigned int y,unsigned int color)
 {
 	LCD_SetPos(x,y,x,y);
 	Write_Data_U16(color);
 } 
 
-static inline uint32_t readFromCmd(uint8_t cmd, uint32_t startmask){
+static inline uint32_t __not_in_flash_func(readFromCmd)(uint8_t cmd, uint32_t startmask){
     gpio_put(GC9A01_CSN,0); D
     gpio_set_dir(GC9A01_DAT,GPIO_OUT);
     gpio_put(GC9A01_D_C,0);

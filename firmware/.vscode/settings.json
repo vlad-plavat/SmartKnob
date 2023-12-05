@@ -6,6 +6,9 @@
         "motor.h": "c",
         "chrono": "cpp",
         "gc9a01.h": "c",
-        "gc9a01_helpers.h": "c"
+        "gc9a01_helpers.h": "c",
+        "*.vec": "c",
+        "stdlib.h": "c",
+        "bootrom.h": "c"
     }
 }
