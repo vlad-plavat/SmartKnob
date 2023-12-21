@@ -12,5 +12,9 @@
 
 void __not_in_flash_func(GC9A01_run)();
 void GC9A01_init();
+void *dbgptr();
+void *dbgptr2();
+int dbgint();
+float dbgfloat();
 
 #endif

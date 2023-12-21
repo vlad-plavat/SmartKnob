@@ -9,6 +9,11 @@
         "gc9a01_helpers.h": "c",
         "*.vec": "c",
         "stdlib.h": "c",
-        "bootrom.h": "c"
+        "bootrom.h": "c",
+        "settings.h": "c",
+        "stdint.h": "c",
+        "string.h": "c",
+        "frametype.h": "c",
+        "boot_button.h": "c"
     }
 }

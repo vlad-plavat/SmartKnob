@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "pico/stdlib.h"
+#include "Settings.h"
 
 #define BOOT_BUTTON_PIN 11
 #define BOOT_DELAY_MS 500
@@ -22,11 +23,22 @@ static inline void init_boot_button(){
     prev_rst_state = true;
 }
 
+static inline bool check_button_enter_settings(){
+    uint32_t begin_time = time_us_32();
+    while(gpio_get(BOOT_BUTTON_PIN) == 0){
+        uint32_t cr_time = time_us_32();
+        if(cr_time - begin_time > 1000){
+            return true;
+        }
+    }
+    return false;
+}
+
 static inline void check_boot_button(){
     uint32_t cr_time = time_us_32();
     bool cr_state = gpio_get(BOOT_BUTTON_PIN);
     if(cr_state != prev_rst_state){
-        if(stable_time_rst < BOOT_DELAY_MS*1000){
+        if(stable_time_rst < BOOT_DELAY_MS*1000 && stable_time_rst > 10*1000){
             if(cr_state == 1){
                 reset_usb_boot(0,0);
             }else{

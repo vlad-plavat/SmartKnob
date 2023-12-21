@@ -5,90 +5,78 @@
 #include "GC9A01.pio.h"
 #include "GC9A01.h"
 #include "GC9A01_helpers.h"
+#include "frametype.h"
 #include <math.h>
+#include <string.h>
 
 static uint GC9A01_sm, GC9A01_offset;
-static uint GC9A01_dma_dat;
+static uint GC9A01_dma_dat, GC9A01_dma_ctrl;
+static uint32_t *knob_angle;
 
 
-uint16_t __attribute__((section (".frameAddress"))) frame1[200][200],frame2[240][240]={
-	#include "img.vec"
-};
+//uint16_t __attribute__((section (".frameAddress"))) frame1[200][200],frame2[240][240];
+
+uint8_t __attribute__((section (".frameAddress"))) filler[10848];
+
+uint16_t *control_blocks1[241];
+uint16_t *control_blocks2[241];
 
 //union 
 //uint16_t frame1[1][1],frame2[1][1];
-
-
+int cnt=0;
+float fps=0;
+void *dbgptr(){
+    return dma_hw->ch[GC9A01_dma_dat].read_addr;
+}
+void *dbgptr2(){
+    return dma_hw->ch[GC9A01_dma_ctrl].read_addr;
+}
+int dbgint(){
+    //return cnt;
+    return (dma_hw->ch[GC9A01_dma_ctrl].read_addr - (int)control_blocks2)/4;
+    //return dma_hw->ch[GC9A01_dma_dat].ctrl_trig;
+}
+float dbgfloat(){
+    return fps;
+}
 void __not_in_flash_func(GC9A01_run)(){
+    for(int i=0; i<240; i++){
+        control_blocks1[i] = frame1[i]-cuts[i];
+        control_blocks2[i] = frame2[i]-cuts[i];
+    }
+    control_blocks1[240]=0;
+    control_blocks2[240]=0;
+
     while(1){
+        cnt++;
+        
         /*uint32_t bri=(sin(10.f*time_us_32()/1000000)+1)/2*1023;
 		pwm_set_gpio_level(BLCTRL,(bri*bri/1024)/2+128);*/
 
-        static uint32_t col = 0xaaaaaaaa;
-        //LCD_SetPos(120-50,120-50,120+50,120+50);
-
-        //#define blue 0b1010111011011100u
-        #define blue 0b0000000000011111u
         #define dist(x1,y1,x2,y2) (sqrt(((float)x1-x2)*((float)x1-x2) + ((float)y1-y2)*((float)y1-y2)))
-        // Initialize the program using the helper function in our .pio file
-            //starts and stalls
-        //int32_t ballx=120+50*sin(10.0f*time_us_32()/1000000);
-        //int32_t bally=120+50*cos(10.0f*time_us_32()/1000000),radius=12;
-
-        /*for(int i=0;i<240;i++){
-            for(int j=0;j<240;j++){
-                if(i > bally+radius || i<bally-radius || j>ballx+radius || j<ballx-radius)
-                    frame1[i][j]=blue;
-                else
-                    frame1[i][j]=~blue;
-                
-            }
-        }*/
-		
-		//#define ARG time_us_32()/4
-		//register int sinth = sin(10.0f*ARG/1000000)*8192,costh = cos(10.0f*ARG/1000000)*8192;
-		//register int sinth = sin(knob_angle*360.0/1024/16 *3.14/180)*8192,costh = cos(knob_angle*360.0/1024/16 *3.14/180)*8192;
+        
+		#define ARG time_us_32()/4
 		#define CLAMP(X) ((X>239)?239:(X<0)?0:X)
         
-static int frameready=0;
+        static int frameready=0;
 
-/*if(!frameready)
-    for(register int y=50;y<190;y++){
-        for(register int x=50;x<190;x++){
-            __asm("YOYOYOYOY: nop\n");
-            frame1[y][x]=
-            frame2	[ CLAMP(((x-120)*sinth+(y-120)*costh)/8192+120) ]
-                    [ CLAMP(((x-120)*costh-(y-120)*sinth)/8192+120)];
-            __asm("YOYOYOYOY2: nop\n");
-            
-        frameready = 1;      
-            
-        }
-            __asm("AMUUUU: nop\n");
-        usb();
-    }*/
-frameready=1;
-
-for(register int y=50;y<190;y++){
-        for(register int x=50;x<190;x++){
-            frame2[y][x]= time_us_32()/1024;
-        }
-        //usb();
-    }
-
-/*for(int i=bally-radius;i<bally+radius;i++){
-            for(int j=ballx-radius;j<ballx+radius;j++){
-                frame1[i][j]=blue;
-                
-            }
-        }*/
+        if(!frameready)
+            for(int i=50;i<140;i++){
+                    for(int j=50;j<140;j++){
+                        frame2[i][j-cuts[i]]=0xff00 + 0xff*(cnt/10%2);
+                        frame1[i][j-cuts[i]] = ~(frame2[i][j-cuts[i]]);
+                    }
+                }
+        frameready=1;
 
         static int first=1;
 
-        if(!first && dma_channel_is_busy(GC9A01_dma_dat)){
+        #define DMA_DONE (dma_hw->intr & (1u << GC9A01_dma_dat))
+        if(!first && !DMA_DONE){
             continue;
         }
         first=0;
+        dma_hw->ints0 = 1u << GC9A01_dma_dat;//reset interrupt
         frameready=0;
         
 
@@ -101,43 +89,59 @@ for(register int y=50;y<190;y++){
         gpio_put(GC9A01_CSN,0); D
         gpio_set_dir(GC9A01_DAT,GPIO_OUT);
 
-/*for(int i=0;i<240;i++){
-    for(int j=0;j<240;j++){
-        
-        for(uint16_t m=0x8000;m;m=m>>1){
-            gpio_put(GC9A01_CLK,0); gpio_put(GC9A01_DAT,frame2[i][j]&m);
-            gpio_put(GC9A01_CLK,1);
-        }
-        gpio_put(GC9A01_CLK,0);
-    }
-    usb();
-}*/
+        /*for(int i=0;i<240;i++){
+            for(int j=0;j<240;j++){
+                
+                for(uint16_t m=0x8000;m;m=m>>1){
+                    gpio_put(GC9A01_CLK,0); gpio_put(GC9A01_DAT,frame2[i][j]&m);
+                    gpio_put(GC9A01_CLK,1);
+                }
+                gpio_put(GC9A01_CLK,0);
+            }
+            usb();
+        }*/
 
 
         GC9A01_program_init(GC9A01_PIO, GC9A01_sm, GC9A01_offset, GC9A01_CLK, GC9A01_DAT);
 
         /*for(int i=0;i<240;i++){
-                for(int j=0;j<240;j++){
-                    pio_sm_put_blocking(GC9A01_PIO, GC9A01_sm, frame1[i][j]<<16);
-                }
-            }*/
+            uint16_t *p = frame2[i]-cuts[i];
+            for(int j=0;j<240;j++){
+                pio_sm_put_blocking(GC9A01_PIO, GC9A01_sm, p[j]<<16);
+            }
+        }*/
 
+        /*for(int i=0;i<240;i++){
+            //dma_channel_transfer_from_buffer_now(GC9A01_dma_dat, control_blocks2[i], 240);
+            dma_hw->ch[GC9A01_dma_dat].al3_read_addr_trig = (uint32_t)control_blocks2[i];
+            while(dma_channel_is_busy(GC9A01_dma_dat));
+        }*/
 
-        dma_channel_transfer_from_buffer_now(GC9A01_dma_dat, frame2, 240*240);
+        //dma_hw->ch[GC9A01_dma_ctrl].read_addr = &control_blocks1[0];
+        //dma_start_channel_mask(1u << GC9A01_dma_ctrl);
+        dma_channel_transfer_from_buffer_now(GC9A01_dma_ctrl, control_blocks2, 1);
+        /*while (!(dma_hw->intr & 1u << GC9A01_dma_dat))
+            tight_loop_contents();
+        dma_hw->ints0 = 1u << GC9A01_dma_dat;*/
+        //sleep_ms(200);
+        //dma_hw->ints0 = 1u << GC9A01_dma_dat;
+
+        /////dma_channel_transfer_from_buffer_now(GC9A01_dma_dat, frame2, 240*240);
         
         //col *= 123456+5615613;
 
 
-        /*static int cycles = 0;
+        static int cycles = 0;
         static uint64_t time;
         if(cycles%100==0){
 			//printf("adr0:%p adr1:%p\n",&frame1[0][0],&frame1[0][1]);
             char buf[100];
-            sprintf(buf, "\n%ffps\n\n",1000000*100.0/(time_us_64()-time));
-            prt(buf);
+            //sprintf(buf, "\n%ffps\n\n",1000000*100.0/(time_us_64()-time));
+            //prt(buf);
+            fps = 1000000*100.0/(time_us_64()-time);
             time = time_us_64();
         }
-        cycles++;*/
+        cycles++;
 
         //printf("0x%06lx %08lx\n", readFromCmd(RDDID,0x800000), readFromCmd(RDDST,0x80000000));
         
@@ -145,16 +149,19 @@ for(register int y=50;y<190;y++){
     }
 }
 
-void GC9A01_init(){
-    
-    GC9A01_Initial();
+//uint8_t cuts[240];
 
+void GC9A01_init(uint32_t *k_angle){
+    init_frame_buffers();
+    GC9A01_Initial();
+    knob_angle = k_angle;
     
     PIO pio = GC9A01_PIO;
     GC9A01_sm = pio_claim_unused_sm(pio, true);
     GC9A01_offset = pio_add_program(pio, &GC9A01_program);
 
     GC9A01_dma_dat = dma_claim_unused_channel(true);
+    GC9A01_dma_ctrl = dma_claim_unused_channel(true);
 
     
     dma_channel_config c = dma_channel_get_default_config(GC9A01_dma_dat);
@@ -162,10 +169,23 @@ void GC9A01_init(){
     channel_config_set_dreq(&c, pio_get_dreq(GC9A01_PIO, GC9A01_sm, true));
     channel_config_set_read_increment(&c, true);
     channel_config_set_write_increment(&c, false);
+    channel_config_set_chain_to(&c, GC9A01_dma_ctrl);
+    channel_config_set_irq_quiet(&c, true);
     dma_channel_configure(GC9A01_dma_dat, &c,
                         &GC9A01_PIO->txf[GC9A01_sm], // write address
                         frame2, // read address
-                        240*240, // element count (each element is of size transfer_data_size)
+                        240, // element count (each element is of size transfer_data_size)
+                        false); // start
+
+    c = dma_channel_get_default_config(GC9A01_dma_ctrl);
+    channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
+    channel_config_set_read_increment(&c, true);
+    channel_config_set_write_increment(&c, true);
+    channel_config_set_ring(&c, true, 2); // 1 << 2 (=4) byte boundary on write ptr
+    dma_channel_configure(GC9A01_dma_ctrl, &c,
+                        &dma_hw->ch[GC9A01_dma_dat].al3_read_addr_trig, // write address
+                        &control_blocks2[0], // read address
+                        1, // element count (each element is of size transfer_data_size)
                         false); // start
 
     /*gpio_set_function(BLCTRL, GPIO_FUNC_PWM);

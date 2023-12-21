@@ -1,4 +1,3 @@
-
 #include "bsp/board.h"
 #include "tusb.h"
 
