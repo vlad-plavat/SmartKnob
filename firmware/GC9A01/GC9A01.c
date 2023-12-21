@@ -39,6 +39,7 @@ int dbgint(){
 float dbgfloat(){
     return fps;
 }
+
 void __not_in_flash_func(GC9A01_run)(){
     for(int i=0; i<240; i++){
         control_blocks1[i] = frame1[i]-cuts[i];
@@ -89,67 +90,12 @@ void __not_in_flash_func(GC9A01_run)(){
         gpio_put(GC9A01_CSN,0); D
         gpio_set_dir(GC9A01_DAT,GPIO_OUT);
 
-        /*for(int i=0;i<240;i++){
-            for(int j=0;j<240;j++){
-                
-                for(uint16_t m=0x8000;m;m=m>>1){
-                    gpio_put(GC9A01_CLK,0); gpio_put(GC9A01_DAT,frame2[i][j]&m);
-                    gpio_put(GC9A01_CLK,1);
-                }
-                gpio_put(GC9A01_CLK,0);
-            }
-            usb();
-        }*/
-
-
         GC9A01_program_init(GC9A01_PIO, GC9A01_sm, GC9A01_offset, GC9A01_CLK, GC9A01_DAT);
 
-        /*for(int i=0;i<240;i++){
-            uint16_t *p = frame2[i]-cuts[i];
-            for(int j=0;j<240;j++){
-                pio_sm_put_blocking(GC9A01_PIO, GC9A01_sm, p[j]<<16);
-            }
-        }*/
-
-        /*for(int i=0;i<240;i++){
-            //dma_channel_transfer_from_buffer_now(GC9A01_dma_dat, control_blocks2[i], 240);
-            dma_hw->ch[GC9A01_dma_dat].al3_read_addr_trig = (uint32_t)control_blocks2[i];
-            while(dma_channel_is_busy(GC9A01_dma_dat));
-        }*/
-
-        //dma_hw->ch[GC9A01_dma_ctrl].read_addr = &control_blocks1[0];
-        //dma_start_channel_mask(1u << GC9A01_dma_ctrl);
         dma_channel_transfer_from_buffer_now(GC9A01_dma_ctrl, control_blocks2, 1);
-        /*while (!(dma_hw->intr & 1u << GC9A01_dma_dat))
-            tight_loop_contents();
-        dma_hw->ints0 = 1u << GC9A01_dma_dat;*/
-        //sleep_ms(200);
-        //dma_hw->ints0 = 1u << GC9A01_dma_dat;
 
-        /////dma_channel_transfer_from_buffer_now(GC9A01_dma_dat, frame2, 240*240);
-        
-        //col *= 123456+5615613;
-
-
-        static int cycles = 0;
-        static uint64_t time;
-        if(cycles%100==0){
-			//printf("adr0:%p adr1:%p\n",&frame1[0][0],&frame1[0][1]);
-            char buf[100];
-            //sprintf(buf, "\n%ffps\n\n",1000000*100.0/(time_us_64()-time));
-            //prt(buf);
-            fps = 1000000*100.0/(time_us_64()-time);
-            time = time_us_64();
-        }
-        cycles++;
-
-        //printf("0x%06lx %08lx\n", readFromCmd(RDDID,0x800000), readFromCmd(RDDST,0x80000000));
-        
-        //sleep_ms(200);
     }
 }
-
-//uint8_t cuts[240];
 
 void GC9A01_init(uint32_t *k_angle){
     init_frame_buffers();
@@ -162,7 +108,6 @@ void GC9A01_init(uint32_t *k_angle){
 
     GC9A01_dma_dat = dma_claim_unused_channel(true);
     GC9A01_dma_ctrl = dma_claim_unused_channel(true);
-
     
     dma_channel_config c = dma_channel_get_default_config(GC9A01_dma_dat);
     channel_config_set_transfer_data_size(&c, DMA_SIZE_16);
