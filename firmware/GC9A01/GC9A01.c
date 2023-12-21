@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/dma.h"
+#include "hardware/pwm.h"
 #include "hardware/pio.h"
 #include "GC9A01.pio.h"
 #include "GC9A01.h"
@@ -51,8 +52,8 @@ void __not_in_flash_func(GC9A01_run)(){
     while(1){
         cnt++;
         
-        /*uint32_t bri=(sin(10.f*time_us_32()/1000000)+1)/2*1023;
-		pwm_set_gpio_level(BLCTRL,(bri*bri/1024)/2+128);*/
+        uint32_t bri=(sin(10.f*time_us_32()/1000000)+1)/2*1023;
+		pwm_set_gpio_level(GC9A01_BLCTRL,(bri*bri/1024)/2+128);
 
         #define dist(x1,y1,x2,y2) (sqrt(((float)x1-x2)*((float)x1-x2) + ((float)y1-y2)*((float)y1-y2)))
         
@@ -133,11 +134,10 @@ void GC9A01_init(uint32_t *k_angle){
                         1, // element count (each element is of size transfer_data_size)
                         false); // start
 
-    /*gpio_set_function(BLCTRL, GPIO_FUNC_PWM);
-    uint slice_num = pwm_gpio_to_slice_num(BLCTRL);
-
+    gpio_set_function(GC9A01_BLCTRL, GPIO_FUNC_PWM);
+    uint slice_num = pwm_gpio_to_slice_num(GC9A01_BLCTRL);
 	pwm_config config = pwm_get_default_config();
     pwm_config_set_clkdiv(&config, 1.f);
 	pwm_config_set_wrap(&config, 1024);
-    pwm_init(slice_num, &config, true);*/
+    pwm_init(slice_num, &config, true);
 }

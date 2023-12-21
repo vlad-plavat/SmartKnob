@@ -14,6 +14,7 @@
         "stdint.h": "c",
         "string.h": "c",
         "frametype.h": "c",
-        "boot_button.h": "c"
+        "boot_button.h": "c",
+        "dma.h": "c"
     }
 }

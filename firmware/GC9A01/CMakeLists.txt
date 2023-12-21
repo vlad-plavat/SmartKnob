@@ -15,4 +15,5 @@ target_include_directories(GC9A01 PUBLIC
 target_link_libraries(GC9A01 pico_stdlib
                         hardware_dma
                         hardware_pio
+                        hardware_pwm
                         )
