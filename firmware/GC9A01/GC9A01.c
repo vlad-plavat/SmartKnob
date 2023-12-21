@@ -14,74 +14,102 @@ static uint GC9A01_sm, GC9A01_offset;
 static uint GC9A01_dma_dat, GC9A01_dma_ctrl;
 static uint32_t *knob_angle;
 
+uint16_t pixcount=0;
 
 //uint16_t __attribute__((section (".frameAddress"))) frame1[200][200],frame2[240][240];
 
-uint8_t __attribute__((section (".frameAddress"))) filler[10848];
+uint8_t __attribute__((section (".frameAddress"))) filler[8920];
 
-uint16_t *control_blocks1[241];
-uint16_t *control_blocks2[241];
+uint16_t * __attribute__((section (".frameAddress"))) control_blocks1[241];
+uint16_t * __attribute__((section (".frameAddress"))) control_blocks2[241];
+uint16_t **control_blocks;
+
+uint16_t **frame;
 
 //union 
 //uint16_t frame1[1][1],frame2[1][1];
 int cnt=0;
 float fps=0;
+unsigned long render_time;
 void *dbgptr(){
-    return dma_hw->ch[GC9A01_dma_dat].read_addr;
+    return NULL;
 }
 void *dbgptr2(){
-    return dma_hw->ch[GC9A01_dma_ctrl].read_addr;
+    return NULL;
 }
 int dbgint(){
-    //return cnt;
-    return (dma_hw->ch[GC9A01_dma_ctrl].read_addr - (int)control_blocks2)/4;
-    //return dma_hw->ch[GC9A01_dma_dat].ctrl_trig;
+    return render_time;
 }
 float dbgfloat(){
     return fps;
 }
 
 void __not_in_flash_func(GC9A01_run)(){
-    for(int i=0; i<240; i++){
-        control_blocks1[i] = frame1[i]-cuts[i];
-        control_blocks2[i] = frame2[i]-cuts[i];
-    }
-    control_blocks1[240]=0;
-    control_blocks2[240]=0;
-
     while(1){
-        cnt++;
         
         uint32_t bri=(sin(10.f*time_us_32()/1000000)+1)/2*1023;
 		pwm_set_gpio_level(GC9A01_BLCTRL,(bri*bri/1024)/2+128);
 
-        #define dist(x1,y1,x2,y2) (sqrt(((float)x1-x2)*((float)x1-x2) + ((float)y1-y2)*((float)y1-y2)))
+       /**/ #define dist(x1,y1,x2,y2) (sqrt(((float)x1-x2)*((float)x1-x2) + ((float)y1-y2)*((float)y1-y2)))
         
 		#define ARG time_us_32()/4
-		#define CLAMP(X) ((X>239)?239:(X<0)?0:X)
+		#define CLAMP(X) ((X>239)?239:(X<0)?0:X)*/
+
+        //render
+        unsigned long render_start_time = time_us_32();
+        memset(frame[0],/*0x80+0x7f*(cnt/10%2)*/(*knob_angle)>>6,pixcount*2);
+        for(register int i=120-32;i<120+32;i++){
+            register uint16_t* lineptr = frame[i]-cuts[i];
+            for(register int j=120-32;j<120+32;j++){
+                lineptr[j]=cnt;
+            }
+        }
         
-        static int frameready=0;
+        /*asm volatile(".syntax unified\n"
+                    "movs r0, 120-32\n"
+                    "0:cmp r0, 120+32\n"
+                    "beq 1f\n"
 
-        if(!frameready)
-            for(int i=50;i<140;i++){
-                    for(int j=50;j<140;j++){
-                        frame2[i][j-cuts[i]]=0xff00 + 0xff*(cnt/10%2);
-                        frame1[i][j-cuts[i]] = ~(frame2[i][j-cuts[i]]);
-                    }
-                }
-        frameready=1;
+                        "lsls r3, r0, #2 \n"
+                        "ldr r2 , [%[frame], r3]\n"
+                        "ldrb r5, [%[cuts], r0]\n"
+                        "lsls r5, r5, #1 \n"
+                        "subs r2, r2, r5\n"
 
+                        "movs r1, 120-32\n"
+                        "2:cmp r1, 120+32\n"
+                        "beq 3f\n"
+                            "lsls r3, r1, #1 \n"
+                            "strh %[cnt], [r2, r3]\n"
+
+                        "adds r1, r1, #1\n"
+                        "b 2b\n"
+                        "3:\n"
+
+
+
+                    "adds r0, r0, #1\n"
+                    "b 0b\n"
+                    "1:\n"
+                    ".syntax divided\n"
+            :
+            : [frame] "l" (frame), [cnt] "l" (cnt), [cuts] "l" (cuts)
+            : "r0" , "r1" , "r2" , "r3" , "r5" , "memory", "cc"
+        );*/
+
+        render_time = time_us_32() - render_start_time;
+
+        //wait
         static int first=1;
-
         #define DMA_DONE (dma_hw->intr & (1u << GC9A01_dma_dat))
-        if(!first && !DMA_DONE){
-            continue;
+        while(!first && !DMA_DONE){
+            //continue;
         }
         first=0;
+        cnt++;
         dma_hw->ints0 = 1u << GC9A01_dma_dat;//reset interrupt
-        frameready=0;
         
-
+        //transfer frame
         gpio_set_function(GC9A01_CLK, GPIO_FUNC_SIO);
         gpio_set_function(GC9A01_DAT, GPIO_FUNC_SIO);
 
@@ -93,13 +121,33 @@ void __not_in_flash_func(GC9A01_run)(){
 
         GC9A01_program_init(GC9A01_PIO, GC9A01_sm, GC9A01_offset, GC9A01_CLK, GC9A01_DAT);
 
-        dma_channel_transfer_from_buffer_now(GC9A01_dma_ctrl, control_blocks2, 1);
+        dma_channel_transfer_from_buffer_now(GC9A01_dma_ctrl, control_blocks, 1);
+
+        //swap buffers
+        if(frame == frame1){
+            frame = frame2;
+            control_blocks = control_blocks2;
+        }else{
+            frame = frame1;
+            control_blocks = control_blocks1;
+        }
 
     }
 }
 
 void GC9A01_init(uint32_t *k_angle){
     init_frame_buffers();
+    for(int i=0; i<240; i++){
+        pixcount += 240-2*cuts[i];
+        control_blocks1[i] = frame1[i]-cuts[i];
+        control_blocks2[i] = frame2[i]-cuts[i];
+    }
+    control_blocks1[240]=0;
+    control_blocks2[240]=0;
+
+    control_blocks = control_blocks1;
+    frame = frame1;
+
     GC9A01_Initial();
     knob_angle = k_angle;
     

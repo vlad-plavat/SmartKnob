@@ -20,6 +20,7 @@ uint32_t knob_angle;
 uint8_t stack_core1[CORE1_STACK_SIZE];
 
 int main(){
+    set_sys_clock_khz(125000,false);
     init_boot_button();
     read_settings();
     WS2812_init();
@@ -41,7 +42,8 @@ int main(){
         service_usb();
         char buf[100];
         //sprintf(buf,"%p %p %08x \n",dbgptr(), dbgptr2(), dbgint());
-        sprintf(buf,"%f \n",dbgfloat());
+        //sprintf(buf,"%f \n",dbgfloat());
+        sprintf(buf,"%u \n",dbgint());
         tud_cdc_n_write(0, buf, strlen(buf));
         
         check_boot_button();

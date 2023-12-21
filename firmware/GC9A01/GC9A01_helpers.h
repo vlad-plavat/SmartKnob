@@ -168,8 +168,8 @@ static inline void GC9A01_Initial(void)
 
 
 	Write_Cmd(0xB6);
-	Write_Cmd_Data(0x00); 			
-	Write_Cmd_Data(0x00); 
+	Write_Cmd_Data(0x00);
+	Write_Cmd_Data(0x00);
 
 	Write_Cmd(0x36);////////////////////ORDER
 	Write_Cmd_Data(0x48);//0x10 0x04
