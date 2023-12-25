@@ -10,8 +10,12 @@
 #include <math.h>
 #include <string.h>
 
+#include "../HX711/HX711.h"
+#include "images/smartknob_image.h"
+#include "font.h"
+
 static uint GC9A01_sm, GC9A01_offset;
-static uint GC9A01_dma_dat, GC9A01_dma_ctrl;
+static uint GC9A01_dma_dat, GC9A01_dma_ctrl, GC9A01_dma_buf;
 static uint32_t *knob_angle;
 
 uint16_t pixcount=0;
@@ -30,7 +34,7 @@ uint16_t **frame;
 //uint16_t frame1[1][1],frame2[1][1];
 int cnt=0;
 float fps=0;
-unsigned long render_time;
+unsigned long render_time, cnt2=0;
 void *dbgptr(){
     return NULL;
 }
@@ -44,26 +48,131 @@ float dbgfloat(){
     return fps;
 }
 
+uint16_t lineBuffer[240];
+
+static __force_inline void drawRectangle(int16_t x, int16_t y, uint8_t h, uint8_t w, uint16_t color){
+    h--;w--;//function calculates inclusive limits
+    int16_t top = y<0?0:y;
+    int16_t left = x<0?0:x;
+    int16_t right = (x+w)>=WIDTH?WIDTH-1:(x+w);
+    int16_t bottom = (y+h)>=HEIGHT?HEIGHT-1:(y+h);
+    if(top>=bottom) return;
+    if(left>=right) return;
+    for(register int line = top; line<=bottom; line++){
+        uint8_t maxcol = 239-cuts[line];
+        register uint16_t* lineptr = frame[line]-cuts[line];
+        register int col = left<cuts[line]?cuts[line]:left;
+        register int rgt = right>maxcol?maxcol:right;
+        for(; col<=rgt; col++){
+            lineptr[col] = color;
+        }
+    }
+}
+
+static __force_inline void drawImage(int16_t x, int16_t y, uint8_t h, uint8_t w, void *image){
+    h--;w--;//function calculates inclusive limits
+    int16_t top = y<0?0:y;
+    int16_t left = x<0?0:x;
+    int16_t right = (x+w)>=WIDTH?WIDTH-1:(x+w);
+    int16_t bottom = (y+h)>=HEIGHT?HEIGHT-1:(y+h);
+    if(top>=bottom) return;
+    if(left>=right) return;
+    register uint16_t* imgLineptr = image;
+    imgLineptr += (w+1)*h-(top-y)*(w+1);
+    for(register int line = top; line<=bottom; line++){
+        dma_channel_set_read_addr(GC9A01_dma_buf, imgLineptr, false);
+        dma_channel_set_write_addr(GC9A01_dma_buf, lineBuffer, false);
+        dma_channel_set_trans_count(GC9A01_dma_buf, (w+1+1)/2, true);
+
+        register uint8_t maxcol = 239-cuts[line];
+        register uint16_t* lineptr = frame[line]-cuts[line];
+        register int col = left<cuts[line]?cuts[line]:left;
+        register int rgt = right>maxcol?maxcol:right;
+        register uint8_t imgCol=(col-x);
+        while(dma_channel_is_busy(GC9A01_dma_buf));
+        for(; col<=rgt; col++){
+            if(lineBuffer[imgCol] != 0)
+                lineptr[col] = lineBuffer[imgCol];
+            imgCol++;
+        }
+        imgLineptr -= (w+1);
+    }
+}
+
+static __force_inline void fillScreen(uint16_t color){
+    memset(frame[0],color,pixcount*2);
+}
+
+static __force_inline void printLine(int16_t x, int16_t y, const char *s, uint16_t color){
+    register const char *p;
+    register uint8_t charLine=0;
+    for(register int line = y; line<y+16*2; line++){//double size
+        register uint16_t* lineptr = frame[line]-cuts[line];
+        p=s;
+        register int16_t frameCol = x;
+        while(*p){
+            register uint8_t charIndex = (*p) - ' ';//first char
+            if(charIndex <= 127){
+                register unsigned char charWidth = widtbl_f16[charIndex];
+                if(charWidth <= 8){
+                    register uint8_t charData = chrtbl_f16[charIndex][charLine];
+                    register uint8_t mask = 0x80;
+                    for(register uint8_t charCol=0; charCol<charWidth; charCol++){
+                        if(charData & mask){
+                            lineptr[frameCol] = color;//double size
+                            lineptr[frameCol+1] = color;
+                        }
+                        frameCol+=2;
+                        mask = mask>>1;
+                    }
+                }//
+            }
+            p++;
+        }
+        if(line%2==1)//double size
+            charLine++;
+    }
+}
+
 void __not_in_flash_func(GC9A01_run)(){
     while(1){
         
         uint32_t bri=(sin(10.f*time_us_32()/1000000)+1)/2*1023;
 		pwm_set_gpio_level(GC9A01_BLCTRL,(bri*bri/1024)/2+128);
 
-       /**/ #define dist(x1,y1,x2,y2) (sqrt(((float)x1-x2)*((float)x1-x2) + ((float)y1-y2)*((float)y1-y2)))
+       /* #define dist(x1,y1,x2,y2) (sqrt(((float)x1-x2)*((float)x1-x2) + ((float)y1-y2)*((float)y1-y2)))
         
 		#define ARG time_us_32()/4
 		#define CLAMP(X) ((X>239)?239:(X<0)?0:X)*/
 
         //render
         unsigned long render_start_time = time_us_32();
-        memset(frame[0],/*0x80+0x7f*(cnt/10%2)*/(*knob_angle)>>6,pixcount*2);
-        for(register int i=120-32;i<120+32;i++){
+        
+        /*for(register int i=120-32;i<120+32;i++){
             register uint16_t* lineptr = frame[i]-cuts[i];
             for(register int j=120-32;j<120+32;j++){
                 lineptr[j]=cnt;
             }
+        }*/
+        static int x=120-64,y=120-64;
+        fillScreen((*knob_angle)>>6);
+
+        int16_t Yval = (Ytilt>0?-Ytilt/32:-Ytilt/16);
+        int16_t Xval = -Xtilt/20+25;
+        if(!(abs(-Xtilt/24)>64 || abs(Yval)>64)){
+            Xval = Yval = 0;
         }
+        if ( Xval > 127 ) Xval=127;
+        if ( Yval > 127 ) Yval=127;
+        if ( Xval < -128) Xval=-128;
+        if ( Yval < -128) Yval=-128;
+
+        x += Xval/32;
+        y += Yval/32;
+
+        //drawRectangle(x,y,64,64, cnt);
+        //drawImage(x,y,128,128, smartknob_image_data);
+        printLine(32,120,"Denisuc micutz",0xff00);
         
         /*asm volatile(".syntax unified\n"
                     "movs r0, 120-32\n"
@@ -157,6 +266,7 @@ void GC9A01_init(uint32_t *k_angle){
 
     GC9A01_dma_dat = dma_claim_unused_channel(true);
     GC9A01_dma_ctrl = dma_claim_unused_channel(true);
+    GC9A01_dma_buf = dma_claim_unused_channel(true);
     
     dma_channel_config c = dma_channel_get_default_config(GC9A01_dma_dat);
     channel_config_set_transfer_data_size(&c, DMA_SIZE_16);
@@ -180,6 +290,16 @@ void GC9A01_init(uint32_t *k_angle){
                         &dma_hw->ch[GC9A01_dma_dat].al3_read_addr_trig, // write address
                         &control_blocks2[0], // read address
                         1, // element count (each element is of size transfer_data_size)
+                        false); // start
+
+    c = dma_channel_get_default_config(GC9A01_dma_buf);
+    channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
+    channel_config_set_read_increment(&c, true);
+    channel_config_set_write_increment(&c, true);
+    dma_channel_configure(GC9A01_dma_buf, &c,
+                        0, // write address
+                        0, // read address
+                        0, // element count (each element is of size transfer_data_size)
                         false); // start
 
     gpio_set_function(GC9A01_BLCTRL, GPIO_FUNC_PWM);

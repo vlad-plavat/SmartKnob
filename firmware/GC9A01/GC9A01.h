@@ -8,6 +8,9 @@
 #define GC9A01_CSN 21
 #define GC9A01_DAT 19//&20
 
+#define WIDTH 240
+#define HEIGHT 240
+
 #define GC9A01_PIO pio1
 
 void __not_in_flash_func(GC9A01_run)();
