@@ -103,15 +103,19 @@ static __force_inline void fillScreen(uint16_t color){
     memset(frame[0],color,pixcount*2);
 }
 
-static __force_inline void printLine(int16_t x, int16_t y, uint16_t maxW, uint16_t scrolled, char *s, uint16_t color){
+static __force_inline void printLine(int16_t x, int16_t y, uint16_t maxW, uint16_t scrolled, char *s, uint16_t color, uint8_t italic){
     register const char *p;
-    register uint8_t charLine=0;
-    for(register int line = y; line<y+16; line++){//double size
+    int16_t top = y<0?0:y;
+    register uint8_t charLine=top-y;
+    int16_t bottom = (y+16)>=HEIGHT?HEIGHT-1:(y+16);
+    for(register int line = top; line<bottom; line++){
         register uint16_t* lineptr = frame[line]-cuts[line];
         p=s;
-        register int16_t frameCol = x;
+        register int16_t frameCol = !italic?x:x+(top-line)/2-(top-y)/2;
         register int16_t right = x+maxW;
         register int16_t scrolleft = scrolled;
+        int16_t limL = cuts[line];
+        int16_t limR = 239-cuts[line];
         while(*p){
             register uint8_t charIndex = (*p) - ' ';//first char
             if(charIndex <= 127){
@@ -125,7 +129,8 @@ static __force_inline void printLine(int16_t x, int16_t y, uint16_t maxW, uint16
                     for(; charCol<charWidth; charCol++){
                         if(frameCol >= right) break;
                         if(charData & mask){
-                            lineptr[frameCol] = color;
+                            if(frameCol >= limL && frameCol <= limR)
+                                lineptr[frameCol] = color;
                         }
                         frameCol++;
                         mask = mask>>1;
@@ -146,19 +151,23 @@ static __force_inline void printLine(int16_t x, int16_t y, uint16_t maxW, uint16
             }
             p++;
         }
-            charLine++;
+        charLine++;
     }
 }
 
-static __force_inline void printLine32(int16_t x, int16_t y, uint16_t maxW, uint16_t scrolled, char *s, uint16_t color){
+static __force_inline void printLine32(int16_t x, int16_t y, uint16_t maxW, uint16_t scrolled, char *s, uint16_t color, uint8_t italic){
     register const char *p;
-    register uint8_t charLine=0;
-    for(register int line = y; line<y+16*2; line++){//double size
+    int16_t top = y<0?0:y;
+    register uint8_t charLine=(top-y)/2;
+    int16_t bottom = (y+16*2)>=HEIGHT?HEIGHT-1:(y+16*2);
+    for(register int line = top; line<bottom; line++){//double size
         register uint16_t* lineptr = frame[line]-cuts[line];
         p=s;
-        register int16_t frameCol = x;
+        register int16_t frameCol = !italic?x:x+(top-line)/2-(top-y)/2;
         register int16_t right = x+maxW;
         register int16_t scrolleft = scrolled;
+        int16_t limL = cuts[line];
+        int16_t limR = 239-cuts[line];
         while(*p){
             register uint8_t charIndex = (*p) - ' ';//first char
             if(charIndex <= 127){
@@ -172,8 +181,10 @@ static __force_inline void printLine32(int16_t x, int16_t y, uint16_t maxW, uint
                     for(; charCol<charWidth; charCol++){
                         if(frameCol >= right) break;
                         if(charData & mask){
-                            lineptr[frameCol] = color;//double size
-                            lineptr[frameCol+1] = color;
+                            if(frameCol >= limL && frameCol <= limR)
+                                lineptr[frameCol] = color;//double size
+                            if(frameCol+1 >= limL && frameCol+1 <= limR)
+                                lineptr[frameCol+1] = color;
                         }
                         frameCol+=2;
                         mask = mask>>1;
@@ -234,7 +245,7 @@ void __not_in_flash_func(GC9A01_run)(){
             }
         }*/
         static int x=120-64,y=120-64;
-        fillScreen((*knob_angle)>>6);
+        fillScreen((*knob_angle)>>(6+4));
 
         int16_t Yval = (Ytilt>0?-Ytilt/32:-Ytilt/16);
         int16_t Xval = -Xtilt/20+25;
@@ -246,13 +257,13 @@ void __not_in_flash_func(GC9A01_run)(){
         if ( Xval < -128) Xval=-128;
         if ( Yval < -128) Yval=-128;
 
-        x += Xval/32;
-        y += Yval/32;
+        x += Xval/64;
+        y += Yval/64;
 
         //drawRectangle(x,y,64,64, cnt);
-        drawImage(x,y,128,128, smartknob_image_data);
-        printLine(32,120, 150, 50*(*knob_angle)/16/1024, "Ceva text",0xff00);
-        printLine32(32,170, 150, 50*(*knob_angle)/16/1024, "Ceva text",0xff00);
+        //drawImage(x,y,128,128, smartknob_image_data);
+        printLine(x,y, 150, 50*(*knob_angle)/16/1024, "Ceva text frumos",0xff00,1);
+        printLine32(x,y+32, 150, 50*(*knob_angle)/16/1024, "Ceva text frumos",0xff00,1);
         
         /*asm volatile(".syntax unified\n"
                     "movs r0, 120-32\n"
