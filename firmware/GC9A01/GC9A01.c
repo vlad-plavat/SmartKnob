@@ -12,7 +12,7 @@
 
 #include "../HX711/HX711.h"
 #include "images/smartknob_image.h"
-#include "font.h"
+#include "font16.h"
 
 static uint GC9A01_sm, GC9A01_offset;
 static uint GC9A01_dma_dat, GC9A01_dma_ctrl, GC9A01_dma_buf;
@@ -104,6 +104,53 @@ static __force_inline void fillScreen(uint16_t color){
 }
 
 static __force_inline void printLine(int16_t x, int16_t y, uint16_t maxW, uint16_t scrolled, char *s, uint16_t color){
+    register const char *p;
+    register uint8_t charLine=0;
+    for(register int line = y; line<y+16; line++){//double size
+        register uint16_t* lineptr = frame[line]-cuts[line];
+        p=s;
+        register int16_t frameCol = x;
+        register int16_t right = x+maxW;
+        register int16_t scrolleft = scrolled;
+        while(*p){
+            register uint8_t charIndex = (*p) - ' ';//first char
+            if(charIndex <= 127){
+                register unsigned char charWidth = widtbl_f16[charIndex];
+                if(scrolleft > charWidth){ scrolleft -= charWidth; p++; continue;}
+                register uint8_t charCol=scrolleft;
+                scrolleft=0;
+                if(charWidth <= 8){
+                    register uint8_t charData = chrtbl_f16[charIndex][charLine];
+                    register uint8_t mask = 0x80>>charCol;
+                    for(; charCol<charWidth; charCol++){
+                        if(frameCol >= right) break;
+                        if(charData & mask){
+                            lineptr[frameCol] = color;
+                        }
+                        frameCol++;
+                        mask = mask>>1;
+                    }
+                }else{
+                    register uint16_t charData = ((uint16_t*)(chrtbl_f16[charIndex]))[charLine];
+                    charData = __builtin_bswap16(charData);
+                    register uint16_t mask = 0x8000>>charCol;
+                    for(; charCol<charWidth; charCol++){
+                        if(frameCol >= right) break;
+                        if(charData & mask){
+                            lineptr[frameCol] = color;
+                        }
+                        frameCol++;
+                        mask = mask>>1;
+                    }
+                }
+            }
+            p++;
+        }
+            charLine++;
+    }
+}
+
+static __force_inline void printLine32(int16_t x, int16_t y, uint16_t maxW, uint16_t scrolled, char *s, uint16_t color){
     register const char *p;
     register uint8_t charLine=0;
     for(register int line = y; line<y+16*2; line++){//double size
@@ -203,8 +250,9 @@ void __not_in_flash_func(GC9A01_run)(){
         y += Yval/32;
 
         //drawRectangle(x,y,64,64, cnt);
-        //drawImage(x,y,128,128, smartknob_image_data);
-        printLine(32,120, 150, 150*(*knob_angle)/16/1024, "Denisuc MicWtz",0xff00);
+        drawImage(x,y,128,128, smartknob_image_data);
+        printLine(32,120, 150, 50*(*knob_angle)/16/1024, "Ceva text",0xff00);
+        printLine32(32,170, 150, 50*(*knob_angle)/16/1024, "Ceva text",0xff00);
         
         /*asm volatile(".syntax unified\n"
                     "movs r0, 120-32\n"
