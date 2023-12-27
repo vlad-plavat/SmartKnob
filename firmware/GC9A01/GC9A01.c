@@ -12,7 +12,7 @@
 
 #include "../HX711/HX711.h"
 #include "images/smartknob_image.h"
-#include "font16.h"
+#include "images/font16.h"
 
 static uint GC9A01_sm, GC9A01_offset;
 static uint GC9A01_dma_dat, GC9A01_dma_ctrl, GC9A01_dma_buf;
