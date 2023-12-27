@@ -103,21 +103,27 @@ static __force_inline void fillScreen(uint16_t color){
     memset(frame[0],color,pixcount*2);
 }
 
-static __force_inline void printLine(int16_t x, int16_t y, const char *s, uint16_t color){
+static __force_inline void printLine(int16_t x, int16_t y, uint16_t maxW, uint16_t scrolled, char *s, uint16_t color){
     register const char *p;
     register uint8_t charLine=0;
     for(register int line = y; line<y+16*2; line++){//double size
         register uint16_t* lineptr = frame[line]-cuts[line];
         p=s;
         register int16_t frameCol = x;
+        register int16_t right = x+maxW;
+        register int16_t scrolleft = scrolled;
         while(*p){
             register uint8_t charIndex = (*p) - ' ';//first char
             if(charIndex <= 127){
                 register unsigned char charWidth = widtbl_f16[charIndex];
+                if(scrolleft > charWidth){ scrolleft -= charWidth; p++; continue;}
+                register uint8_t charCol=scrolleft;
+                scrolleft=0;
                 if(charWidth <= 8){
                     register uint8_t charData = chrtbl_f16[charIndex][charLine];
-                    register uint8_t mask = 0x80;
-                    for(register uint8_t charCol=0; charCol<charWidth; charCol++){
+                    register uint8_t mask = 0x80>>charCol;
+                    for(; charCol<charWidth; charCol++){
+                        if(frameCol >= right) break;
                         if(charData & mask){
                             lineptr[frameCol] = color;//double size
                             lineptr[frameCol+1] = color;
@@ -125,13 +131,39 @@ static __force_inline void printLine(int16_t x, int16_t y, const char *s, uint16
                         frameCol+=2;
                         mask = mask>>1;
                     }
-                }//
+                }else{
+                    register uint16_t charData = ((uint16_t*)(chrtbl_f16[charIndex]))[charLine];
+                    charData = __builtin_bswap16(charData);
+                    register uint16_t mask = 0x8000>>charCol;
+                    for(; charCol<charWidth; charCol++){
+                        if(frameCol >= right) break;
+                        if(charData & mask){
+                            lineptr[frameCol] = color;//double size
+                            lineptr[frameCol+1] = color;
+                        }
+                        frameCol+=2;
+                        mask = mask>>1;
+                    }
+                }
             }
             p++;
         }
         if(line%2==1)//double size
             charLine++;
     }
+}
+
+static __force_inline uint16_t lengthOf(const char *s){
+    const char *p = s;
+    register uint16_t width = 0;
+    while(*p){
+        register uint8_t charIndex = (*p) - ' ';//first char
+        if(charIndex <= 127){
+            width += widtbl_f16[charIndex];
+        }
+        p++;
+    }
+    return width;
 }
 
 void __not_in_flash_func(GC9A01_run)(){
@@ -172,7 +204,7 @@ void __not_in_flash_func(GC9A01_run)(){
 
         //drawRectangle(x,y,64,64, cnt);
         //drawImage(x,y,128,128, smartknob_image_data);
-        printLine(32,120,"Denisuc micutz",0xff00);
+        printLine(32,120, 150, 150*(*knob_angle)/16/1024, "Denisuc MicWtz",0xff00);
         
         /*asm volatile(".syntax unified\n"
                     "movs r0, 120-32\n"
