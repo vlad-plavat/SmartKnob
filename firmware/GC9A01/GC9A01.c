@@ -173,40 +173,41 @@ static __force_inline void drawRotatedImage(int32_t x, int32_t y, int32_t h, int
     w--; h--;
     x=x<<16; y=y<<16; w=w<<16; h=h<<16;
     int32_t x1=x, y1=y;
-    drawRectangle(FIX_TO_PX(x1),FIX_TO_PX(y1),3,3,0xffff);
+    //drawRectangle(FIX_TO_PX(x1),FIX_TO_PX(y1),3,3,0xffff);
     int32_t x2=((int64_t)w*cosof)>>16; x2+=x;
     int32_t y2=((int64_t)w*sinof)>>16; y2+=y;
-    drawRectangle(FIX_TO_PX(x2),FIX_TO_PX(y2),3,3,0xffff);
+    //drawRectangle(FIX_TO_PX(x2),FIX_TO_PX(y2),3,3,0xffff);
     int32_t x3=(((int64_t)w*cosof)>>16) - ((-(int64_t)h*sinof)>>16); x3+=x;
     int32_t y3=(((int64_t)w*sinof)>>16) + ((-(int64_t)h*cosof)>>16); y3+=y;
-    drawRectangle(FIX_TO_PX(x3),FIX_TO_PX(y3),3,3,0xffff);
+    //drawRectangle(FIX_TO_PX(x3),FIX_TO_PX(y3),3,3,0xffff);
     int32_t x4= - ((-(int64_t)h*sinof)>>16); x4+=x;
     int32_t y4=   ((-(int64_t)h*cosof)>>16); y4+=y;
-    drawRectangle(FIX_TO_PX(x4),FIX_TO_PX(y4),3,3,0xffff);
+    //drawRectangle(FIX_TO_PX(x4),FIX_TO_PX(y4),3,3,0xffff);
 
     int32_t xmin = MIN(MIN(x1,x2),MIN(x3,x4)), ymin = MIN(MIN(y1,y2),MIN(y3,y4));
     int32_t xmax = MAX(MAX(x1,x2),MAX(x3,x4)), ymax = MAX(MAX(y1,y2),MAX(y3,y4));
     
-    drawRectangle(FIX_TO_PX(xmin),FIX_TO_PX(ymin),3,3,0xff00);
-    drawRectangle(FIX_TO_PX(xmax),FIX_TO_PX(ymax),3,3,0xff00);
+    //drawRectangle(FIX_TO_PX(xmin),FIX_TO_PX(ymin),3,3,0xff00);
+    //drawRectangle(FIX_TO_PX(xmax),FIX_TO_PX(ymax),3,3,0xff00);
 
     int32_t lmax = FIX_TO_PX(ymax), colmax = FIX_TO_PX(xmax);
+    int32_t lmin = FIX_TO_PX(ymin), colmin = FIX_TO_PX(xmin);
 
-    
 
-    for(int32_t lin = FIX_TO_PX(ymin); lin<=lmax; lin++){
-        register uint16_t* lineptr = frame[lin]-cuts[lin]; 
-        for(int32_t col = FIX_TO_PX(xmin); col<=colmax; col++){
-            int32_t linorig =  ((((int64_t)(col<<16)-x)*cosof)>>16) + ((((int64_t)(lin<<16)-y)*sinof)>>16);
-            int32_t colorig =  ((((int64_t)(col<<16)-x)*sinof)>>16) - ((((int64_t)(lin<<16)-y)*cosof)>>16);
-            linorig>>=16;colorig>>=16;
-            if(linorig<0 || linorig >=(horig+1)) continue;
-            if(colorig<0 || colorig >=(worig+1)) continue;
-            //volatile uint16_t caca = *(img+(worig+1)*linorig+colorig);
-            register uint16_t color = *(img+worig*linorig+colorig);
+    for(int32_t lin = lmin; lin<=lmax; lin++){
+        register uint16_t* lineptr = frame[lin]-cuts[lin];
+    int32_t linorig =  ((((int64_t)(colmin<<16)-x)*cosof)>>16) + ((((int64_t)(lin<<16)-y)*sinof)>>16);
+    int32_t colorig =  ((((int64_t)(colmin<<16)-x)*sinof)>>16) - ((((int64_t)(lin<<16)-y)*cosof)>>16);
+        for(int32_t col = colmin; col<=colmax; col++){
+            uint32_t linorig2 = linorig>>16, colorig2 = colorig>>16;
+            colorig += sinof;
+            linorig += cosof;
+
+            if(linorig2 >= (uint32_t)(horig)) continue;
+            if(colorig2 >= (uint32_t)(worig)) continue;
+            register uint16_t color = *(img+worig*linorig2+colorig2);
             if(color)
                 lineptr[col] = color;
-            //drawRectangle(col,lin,1,1,0x00ff);
         }
     }
 }
