@@ -16,6 +16,8 @@
         "frametype.h": "c",
         "boot_button.h": "c",
         "dma.h": "c",
-        "smartknob_image.h": "c"
+        "smartknob_image.h": "c",
+        "font16.h": "c",
+        "cursor_image.h": "c"
     }
 }

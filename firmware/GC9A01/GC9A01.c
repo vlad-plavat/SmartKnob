@@ -12,7 +12,15 @@
 
 #include "../HX711/HX711.h"
 #include "images/smartknob_image.h"
+#include "images/cursor_image.h"
+#include "images/cursor32.h"
 #include "images/font16.h"
+
+# define M_PI 3.14159265358979323846
+#define DEG2RAD ((M_PI * 2) / 360)
+#define FIX_TO_PX(x) (((x)&0x0000ffff)<0x00008000?(x)>>16:((x)>>16)+1)
+#define MIN(x,y) ((x)<(y)?(x):(y))
+#define MAX(x,y) ((x)>(y)?(x):(y))
 
 static uint GC9A01_sm, GC9A01_offset;
 static uint GC9A01_dma_dat, GC9A01_dma_ctrl, GC9A01_dma_buf;
@@ -50,14 +58,70 @@ float dbgfloat(){
 
 uint16_t lineBuffer[240];
 
+static __force_inline void drawRectGradientH(int16_t x, int16_t y, uint8_t h, uint8_t w, uint16_t color1, uint16_t color2){
+    uint8_t red1 = color1>>11, red2 = color2>>11;
+    uint8_t grn1 = (color1>>5)&0x3f, grn2 = (color2>>5)&0x3f;
+    uint8_t blu1 = color1&0x1f, blu2 = color2&0x1f;
+    for(int i=0; i<w; i++){
+        uint8_t r = red1 + (red2-red1)*(i)/w;
+        uint8_t g = grn1 + (grn2-grn1)*(i)/w;
+        uint8_t b = blu1 + (blu2-blu1)*(i)/w;
+        lineBuffer[i]= (r<<11) | (g<<5) | b;
+    }
+    h--;w--;//function calculates inclusive limits
+    int16_t top = y<0?0:y;
+    int16_t left = x<0?0:x;
+    int16_t right = (x+w)>=WIDTH?WIDTH-1:(x+w);
+    int16_t bottom = (y+h)>=HEIGHT?HEIGHT-1:(y+h);
+    if(top>bottom) return;
+    if(left>right) return;
+    for(register int line = top; line<=bottom; line++){
+        uint8_t maxcol = 239-cuts[line];
+        register uint16_t* lineptr = frame[line]-cuts[line];
+        register int col = left<cuts[line]?cuts[line]:left;
+        register int rgt = right>maxcol?maxcol:right;
+        for(; col<=rgt; col++){
+            lineptr[col] = lineBuffer[col-left];
+        }
+    }
+}
+
+static __force_inline void drawRectGradientV(int16_t x, int16_t y, uint8_t h, uint8_t w, uint16_t color1, uint16_t color2){
+    uint8_t red1 = color1>>11, red2 = color2>>11;
+    uint8_t grn1 = (color1>>5)&0x3f, grn2 = (color2>>5)&0x3f;
+    uint8_t blu1 = color1&0x1f, blu2 = color2&0x1f;
+    for(int i=0; i<w; i++){
+        uint8_t r = red1 + (red2-red1)*(i)/w;
+        uint8_t g = grn1 + (grn2-grn1)*(i)/w;
+        uint8_t b = blu1 + (blu2-blu1)*(i)/w;
+        lineBuffer[i]= (r<<11) | (g<<5) | b;
+    }
+    h--;w--;//function calculates inclusive limits
+    int16_t top = y<0?0:y;
+    int16_t left = x<0?0:x;
+    int16_t right = (x+w)>=WIDTH?WIDTH-1:(x+w);
+    int16_t bottom = (y+h)>=HEIGHT?HEIGHT-1:(y+h);
+    if(top>bottom) return;
+    if(left>right) return;
+    for(register int line = top; line<=bottom; line++){
+        uint8_t maxcol = 239-cuts[line];
+        register uint16_t* lineptr = frame[line]-cuts[line];
+        register int col = left<cuts[line]?cuts[line]:left;
+        register int rgt = right>maxcol?maxcol:right;
+        for(; col<=rgt; col++){
+            lineptr[col] = lineBuffer[line-top];
+        }
+    }
+}
+
 static __force_inline void drawRectangle(int16_t x, int16_t y, uint8_t h, uint8_t w, uint16_t color){
     h--;w--;//function calculates inclusive limits
     int16_t top = y<0?0:y;
     int16_t left = x<0?0:x;
     int16_t right = (x+w)>=WIDTH?WIDTH-1:(x+w);
     int16_t bottom = (y+h)>=HEIGHT?HEIGHT-1:(y+h);
-    if(top>=bottom) return;
-    if(left>=right) return;
+    if(top>bottom) return;
+    if(left>right) return;
     for(register int line = top; line<=bottom; line++){
         uint8_t maxcol = 239-cuts[line];
         register uint16_t* lineptr = frame[line]-cuts[line];
@@ -96,6 +160,54 @@ static __force_inline void drawImage(int16_t x, int16_t y, uint8_t h, uint8_t w,
             imgCol++;
         }
         imgLineptr -= (w+1);
+    }
+}
+
+//16.16 fixed point math
+static __force_inline void drawRotatedImage(int32_t x, int32_t y, int32_t h, int32_t w, int32_t angle, void *image){
+    double anglef = angle/(64.0*1024);
+    int32_t horig = h, worig = w;
+    uint16_t *img = image;
+    int32_t sinof = sin(anglef*DEG2RAD)*(64.0*1024);
+    int32_t cosof = cos(anglef*DEG2RAD)*(64.0*1024);
+    w--; h--;
+    x=x<<16; y=y<<16; w=w<<16; h=h<<16;
+    int32_t x1=x, y1=y;
+    drawRectangle(FIX_TO_PX(x1),FIX_TO_PX(y1),3,3,0xffff);
+    int32_t x2=((int64_t)w*cosof)>>16; x2+=x;
+    int32_t y2=((int64_t)w*sinof)>>16; y2+=y;
+    drawRectangle(FIX_TO_PX(x2),FIX_TO_PX(y2),3,3,0xffff);
+    int32_t x3=(((int64_t)w*cosof)>>16) - ((-(int64_t)h*sinof)>>16); x3+=x;
+    int32_t y3=(((int64_t)w*sinof)>>16) + ((-(int64_t)h*cosof)>>16); y3+=y;
+    drawRectangle(FIX_TO_PX(x3),FIX_TO_PX(y3),3,3,0xffff);
+    int32_t x4= - ((-(int64_t)h*sinof)>>16); x4+=x;
+    int32_t y4=   ((-(int64_t)h*cosof)>>16); y4+=y;
+    drawRectangle(FIX_TO_PX(x4),FIX_TO_PX(y4),3,3,0xffff);
+
+    int32_t xmin = MIN(MIN(x1,x2),MIN(x3,x4)), ymin = MIN(MIN(y1,y2),MIN(y3,y4));
+    int32_t xmax = MAX(MAX(x1,x2),MAX(x3,x4)), ymax = MAX(MAX(y1,y2),MAX(y3,y4));
+    
+    drawRectangle(FIX_TO_PX(xmin),FIX_TO_PX(ymin),3,3,0xff00);
+    drawRectangle(FIX_TO_PX(xmax),FIX_TO_PX(ymax),3,3,0xff00);
+
+    int32_t lmax = FIX_TO_PX(ymax), colmax = FIX_TO_PX(xmax);
+
+    
+
+    for(int32_t lin = FIX_TO_PX(ymin); lin<=lmax; lin++){
+        register uint16_t* lineptr = frame[lin]-cuts[lin]; 
+        for(int32_t col = FIX_TO_PX(xmin); col<=colmax; col++){
+            int32_t linorig =  ((((int64_t)(col<<16)-x)*cosof)>>16) + ((((int64_t)(lin<<16)-y)*sinof)>>16);
+            int32_t colorig =  ((((int64_t)(col<<16)-x)*sinof)>>16) - ((((int64_t)(lin<<16)-y)*cosof)>>16);
+            linorig>>=16;colorig>>=16;
+            if(linorig<0 || linorig >=(horig+1)) continue;
+            if(colorig<0 || colorig >=(worig+1)) continue;
+            //volatile uint16_t caca = *(img+(worig+1)*linorig+colorig);
+            register uint16_t color = *(img+worig*linorig+colorig);
+            if(color)
+                lineptr[col] = color;
+            //drawRectangle(col,lin,1,1,0x00ff);
+        }
     }
 }
 
@@ -244,8 +356,8 @@ void __not_in_flash_func(GC9A01_run)(){
                 lineptr[j]=cnt;
             }
         }*/
-        static int x=120-64,y=120-64;
-        fillScreen((*knob_angle)>>(6+4));
+        static int x=120,y=120;
+        fillScreen(/*(*knob_angle)>>(6+4)*/0x7);
 
         int16_t Yval = (Ytilt>0?-Ytilt/32:-Ytilt/16);
         int16_t Xval = -Xtilt/20+25;
@@ -261,9 +373,14 @@ void __not_in_flash_func(GC9A01_run)(){
         y += Yval/64;
 
         //drawRectangle(x,y,64,64, cnt);
-        //drawImage(x,y,128,128, smartknob_image_data);
-        printLine(x,y, 150, 50*(*knob_angle)/16/1024, "Ceva text frumos",0xff00,1);
-        printLine32(x,y+32, 150, 50*(*knob_angle)/16/1024, "Ceva text frumos",0xff00,1);
+        //drawRectangle(64,64,128,128, 0xff00);
+        //drawRectGradientH(x,y,64,64, 0xff00,0x00ff);
+        //drawRectGradientV(x+64,y+64,64,64, 0xff00,0x00ff);
+        //drawRectangle(120,120,1,1, 0xffff);
+        //drawImage(x,y+32,cursor32_height, cursor32_width, cursor32_data);
+        drawRotatedImage(x,y,64, 64, -((*knob_angle)*360)<<(16-14), cursor_image_data);
+        //printLine(x-128,y, 150, 50*(*knob_angle)/16/1024, "Roxilina",0xff00,1);
+        //printLine32(x-128,y+32, 150, 50*(*knob_angle)/16/1024, "Roxipod",0xff00,1);
         
         /*asm volatile(".syntax unified\n"
                     "movs r0, 120-32\n"
