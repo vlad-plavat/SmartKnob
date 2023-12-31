@@ -166,7 +166,7 @@ static __force_inline void drawImage(int16_t x, int16_t y, uint8_t h, uint8_t w,
 }
 
 //16.16 fixed point math
-static __force_inline void drawRotatedImage(int32_t x, int32_t y, int32_t h, int32_t w, int32_t angle, void *image){
+static __force_inline void drawRotatedImageOrLine(int32_t x, int32_t y, int32_t h, int32_t w, int32_t angle, void *image, uint16_t color){
     double anglef = angle/(64.0*1024);
     int32_t horig = h, worig = w;
     uint16_t *img = image;
@@ -209,18 +209,38 @@ static __force_inline void drawRotatedImage(int32_t x, int32_t y, int32_t h, int
         
         int32_t colorig =  ((((int64_t)(trimmed_left<<16)-x)*cosof)>>16) + ((((int64_t)((lin)<<16)-y)*sinof)>>16);
         int32_t linorig =  ((((int64_t)(trimmed_left<<16)-x)*sinof)>>16) - ((((int64_t)((lin)<<16)-y)*cosof)>>16) + (horig<<16);
-        for(int32_t col = trimmed_left; col<=trimmed_right; col++){
-            uint32_t linorig2 = linorig>>16, colorig2 = colorig>>16;
-            linorig += sinof;
-            colorig += cosof;
+        if(image != NULL){
+            for(int32_t col = trimmed_left; col<=trimmed_right; col++){
+                uint32_t linorig2 = linorig>>16, colorig2 = colorig>>16;
+                linorig += sinof;
+                colorig += cosof;
 
-            if(linorig2 >= (uint32_t)(horig)) continue;
-            if(colorig2 >= (uint32_t)(worig)) continue;
-            register uint16_t color = *(img+worig*linorig2+colorig2);
-            if(color)
+                if(linorig2 >= (uint32_t)(horig)) continue;
+                if(colorig2 >= (uint32_t)(worig)) continue;
+                register uint16_t color = *(img+worig*linorig2+colorig2);
+                if(color)
+                    lineptr[col] = color;
+            }
+        }else{
+            for(int32_t col = trimmed_left; col<=trimmed_right; col++){
+                uint32_t linorig2 = linorig>>16, colorig2 = colorig>>16;
+                linorig += sinof;
+                colorig += cosof;
+
+                if(linorig2 >= (uint32_t)(horig)) continue;
+                if(colorig2 >= (uint32_t)(worig)) continue;
                 lineptr[col] = color;
+            }
         }
     }
+}
+
+static __force_inline void drawRotatedImage(int32_t x, int32_t y, int32_t h, int32_t w, int32_t angle, void *image){
+    drawRotatedImageOrLine(x, y, h, w, angle, image, 0);
+}
+
+static __force_inline void drawRotatedLine(int32_t x, int32_t y, int32_t h, int32_t w, int32_t angle, uint16_t color){
+    drawRotatedImageOrLine(x, y, h, w, angle, NULL, color);
 }
 
 static __force_inline void fillScreen(uint16_t color){
@@ -391,41 +411,10 @@ void __not_in_flash_func(GC9A01_run)(){
         //drawRectangle(120,120,1,1, 0xffff);
         drawImage(120,120,cool_s_height, cool_s_width, cool_s_data);
         drawRotatedImage(x,y,cool_s_height, cool_s_width, -((*knob_angle)*360)<<(16-14), cool_s_data);
+        drawRotatedLine(x,y,cool_s_height, cool_s_width, ((*knob_angle)*360)<<(16-14), 0x00ff);
         //printLine(x-128,y, 150, 50*(*knob_angle)/16/1024, "Roxilina",0xff00,1);
         //printLine32(x-128,y+32, 150, 50*(*knob_angle)/16/1024, "Roxipod",0xff00,1);
         
-        /*asm volatile(".syntax unified\n"
-                    "movs r0, 120-32\n"
-                    "0:cmp r0, 120+32\n"
-                    "beq 1f\n"
-
-                        "lsls r3, r0, #2 \n"
-                        "ldr r2 , [%[frame], r3]\n"
-                        "ldrb r5, [%[cuts], r0]\n"
-                        "lsls r5, r5, #1 \n"
-                        "subs r2, r2, r5\n"
-
-                        "movs r1, 120-32\n"
-                        "2:cmp r1, 120+32\n"
-                        "beq 3f\n"
-                            "lsls r3, r1, #1 \n"
-                            "strh %[cnt], [r2, r3]\n"
-
-                        "adds r1, r1, #1\n"
-                        "b 2b\n"
-                        "3:\n"
-
-
-
-                    "adds r0, r0, #1\n"
-                    "b 0b\n"
-                    "1:\n"
-                    ".syntax divided\n"
-            :
-            : [frame] "l" (frame), [cnt] "l" (cnt), [cuts] "l" (cuts)
-            : "r0" , "r1" , "r2" , "r3" , "r5" , "memory", "cc"
-        );*/
-
         render_time = time_us_32() - render_start_time;
 
         //wait
