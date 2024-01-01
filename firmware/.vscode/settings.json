@@ -20,6 +20,7 @@
         "font16.h": "c",
         "cursor_image.h": "c",
         "cursor32.h": "c",
-        "random": "c"
+        "random": "c",
+        "draw_functions.h": "c"
     }
 }
