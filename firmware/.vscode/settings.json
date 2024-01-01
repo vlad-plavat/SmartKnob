@@ -19,6 +19,7 @@
         "smartknob_image.h": "c",
         "font16.h": "c",
         "cursor_image.h": "c",
-        "cursor32.h": "c"
+        "cursor32.h": "c",
+        "random": "c"
     }
 }

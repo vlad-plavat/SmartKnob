@@ -20,9 +20,12 @@
 
 # define M_PI 3.14159265358979323846
 #define DEG2RAD ((M_PI * 2) / 360)
+#define RAD2DEG (360 / (M_PI * 2))
 #define FIX_TO_PX(x) (((x)&0x0000ffff)<0x00008000?(x)>>16:((x)>>16)+1)
-#define MIN(x,y) ((x)<(y)?(x):(y))
-#define MAX(x,y) ((x)>(y)?(x):(y))
+#ifndef MAX
+    #define MIN(x,y) ((x)<(y)?(x):(y))
+    #define MAX(x,y) ((x)>(y)?(x):(y))
+#endif
 
 static uint GC9A01_sm, GC9A01_offset;
 static uint GC9A01_dma_dat, GC9A01_dma_ctrl, GC9A01_dma_buf;
@@ -78,7 +81,7 @@ static __force_inline void drawRectGradientH(int16_t x, int16_t y, uint8_t h, ui
     if(top>bottom) return;
     if(left>right) return;
     for(register int line = top; line<=bottom; line++){
-        uint8_t maxcol = 239-cuts[line];
+        uint8_t maxcol = (WIDTH-1)-cuts[line];
         register uint16_t* lineptr = frame[line]-cuts[line];
         register int col = left<cuts[line]?cuts[line]:left;
         register int rgt = right>maxcol?maxcol:right;
@@ -106,7 +109,7 @@ static __force_inline void drawRectGradientV(int16_t x, int16_t y, uint8_t h, ui
     if(top>bottom) return;
     if(left>right) return;
     for(register int line = top; line<=bottom; line++){
-        uint8_t maxcol = 239-cuts[line];
+        uint8_t maxcol = (WIDTH-1)-cuts[line];
         register uint16_t* lineptr = frame[line]-cuts[line];
         register int col = left<cuts[line]?cuts[line]:left;
         register int rgt = right>maxcol?maxcol:right;
@@ -117,6 +120,7 @@ static __force_inline void drawRectGradientV(int16_t x, int16_t y, uint8_t h, ui
 }
 
 static __force_inline void drawRectangle(int16_t x, int16_t y, uint8_t h, uint8_t w, uint16_t color){
+    if(h==0 || w==0) return;
     h--;w--;//function calculates inclusive limits
     int16_t top = y<0?0:y;
     int16_t left = x<0?0:x;
@@ -125,7 +129,7 @@ static __force_inline void drawRectangle(int16_t x, int16_t y, uint8_t h, uint8_
     if(top>bottom) return;
     if(left>right) return;
     for(register int line = top; line<=bottom; line++){
-        uint8_t maxcol = 239-cuts[line];
+        uint8_t maxcol = (WIDTH-1)-cuts[line];
         register uint16_t* lineptr = frame[line]-cuts[line];
         register int col = left<cuts[line]?cuts[line]:left;
         register int rgt = right>maxcol?maxcol:right;
@@ -150,7 +154,7 @@ static __force_inline void drawImage(int16_t x, int16_t y, uint8_t h, uint8_t w,
         dma_channel_set_write_addr(GC9A01_dma_buf, lineBuffer, false);
         dma_channel_set_trans_count(GC9A01_dma_buf, (w+1+1)/2, true);
 
-        register uint8_t maxcol = 239-cuts[line];
+        register uint8_t maxcol = (WIDTH-1)-cuts[line];
         register uint16_t* lineptr = frame[line]-cuts[line];
         register int col = left<cuts[line]?cuts[line]:left;
         register int rgt = right>maxcol?maxcol:right;
@@ -175,16 +179,16 @@ static __force_inline void drawRotatedImageOrLine(int32_t x, int32_t y, int32_t 
     w--; h--;
     x=x<<16; y=y<<16; w=w<<16; h=h<<16;
     int32_t x1=x, y1=y;
-    drawRectangle(FIX_TO_PX(x1),FIX_TO_PX(y1),3,3,0xffff);
+    //drawRectangle(FIX_TO_PX(x1),FIX_TO_PX(y1),3,3,0xffff);
     int32_t x2=((int64_t)w*cosof)>>16; x2+=x;
     int32_t y2=((int64_t)w*sinof)>>16; y2+=y;
-    drawRectangle(FIX_TO_PX(x2),FIX_TO_PX(y2),3,3,0xffff);
+    //drawRectangle(FIX_TO_PX(x2),FIX_TO_PX(y2),3,3,0xffff);
     int32_t x3=(((int64_t)w*cosof)>>16) - (((int64_t)h*sinof)>>16); x3+=x;
     int32_t y3=(((int64_t)w*sinof)>>16) + (((int64_t)h*cosof)>>16); y3+=y;
-    drawRectangle(FIX_TO_PX(x3),FIX_TO_PX(y3),3,3,0xffff);
+    //drawRectangle(FIX_TO_PX(x3),FIX_TO_PX(y3),3,3,0xffff);
     int32_t x4= - (((int64_t)h*sinof)>>16); x4+=x;
     int32_t y4=   (((int64_t)h*cosof)>>16); y4+=y;
-    drawRectangle(FIX_TO_PX(x4),FIX_TO_PX(y4),3,3,0xffff);
+    //drawRectangle(FIX_TO_PX(x4),FIX_TO_PX(y4),3,3,0xffff);
 
     int32_t xmin = MIN(MIN(x1,x2),MIN(x3,x4)), ymin = MIN(MIN(y1,y2),MIN(y3,y4));
     int32_t xmax = MAX(MAX(x1,x2),MAX(x3,x4)), ymax = MAX(MAX(y1,y2),MAX(y3,y4));
@@ -205,7 +209,7 @@ static __force_inline void drawRotatedImageOrLine(int32_t x, int32_t y, int32_t 
     for(int32_t lin = top; lin<=bottom; lin++){
         register uint16_t* lineptr = frame[lin]-cuts[lin];
         int32_t trimmed_left = left<cuts[lin]?cuts[lin]:left;
-        int32_t trimmed_right = right>(239-cuts[lin])?239-cuts[lin]:right;
+        int32_t trimmed_right = right>((WIDTH-1)-cuts[lin])?(WIDTH-1)-cuts[lin]:right;
         
         int32_t colorig =  ((((int64_t)(trimmed_left<<16)-x)*cosof)>>16) + ((((int64_t)((lin)<<16)-y)*sinof)>>16);
         int32_t linorig =  ((((int64_t)(trimmed_left<<16)-x)*sinof)>>16) - ((((int64_t)((lin)<<16)-y)*cosof)>>16) + (horig<<16);
@@ -239,8 +243,43 @@ static __force_inline void drawRotatedImage(int32_t x, int32_t y, int32_t h, int
     drawRotatedImageOrLine(x, y, h, w, angle, image, 0);
 }
 
-static __force_inline void drawRotatedLine(int32_t x, int32_t y, int32_t h, int32_t w, int32_t angle, uint16_t color){
-    drawRotatedImageOrLine(x, y, h, w, angle, NULL, color);
+static __force_inline void drawRotatedLine(int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t thickness, uint16_t color){
+    float hypot = sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1));
+    int32_t angle = (acos(1.0*(y2-y1)/hypot)*RAD2DEG)*(64.0*1024);
+    int32_t sinof = (1.0*(x2-x1)/hypot)*(64.0*1024);
+    int32_t cosof = (1.0*(y2-y1)/hypot)*(64.0*1024);
+    if(sinof<0) angle = -angle;
+
+    int32_t deltax = ((int64_t)(thickness<<16)/2*cosof)>>16;
+    int32_t deltay = ((int64_t)(thickness<<16)/2*sinof)>>16;
+
+    drawRotatedImageOrLine(x1-FIX_TO_PX(deltax), y1+FIX_TO_PX(deltay), hypot, thickness, -angle, NULL, color);
+}
+
+
+static __force_inline void drawPartialCircleFrac(int32_t x, int32_t y, int32_t radius, uint16_t color, uint16_t fraction){
+    int32_t ymin=y-FIX_TO_PX(radius), ymax=y+FIX_TO_PX(radius);
+    int32_t y_from_center = -FIX_TO_PX(radius);
+    fraction = 0xffff-fraction;
+    int32_t frac_limit = FIX_TO_PX(((int64_t)radius*2*fraction)>>16);
+    
+    for(int32_t line = ymin; line<=ymax; line++, y_from_center++){
+        if(line-ymin < frac_limit) continue;
+        if(line<0 || line>=HEIGHT) continue;
+        float width_squared = (((int64_t)radius*radius)>>(16+16)) - (y_from_center-0.5)*(y_from_center-0.5);
+        if(width_squared<=0) continue;
+        int32_t line_width = sqrt(width_squared)+0.75;
+        
+        drawRectangle(x-line_width,line,1,line_width*2, color);//efficient enough; has clipping
+    }
+}
+
+#define drawCircleFrac(x,y,r,c) {drawPartialCircleFrac((x),(y),(r),(c),0xffff);}
+
+static __force_inline void drawRotatedLineRoundEdges(int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t thickness, uint16_t color){
+    drawRotatedLine(x1,y1,x2,y2,thickness,color);
+    drawCircleFrac(x1,y1, (thickness<<16)/2, color);
+    drawCircleFrac(x2,y2, (thickness<<16)/2, color);
 }
 
 static __force_inline void fillScreen(uint16_t color){
@@ -259,7 +298,7 @@ static __force_inline void printLine(int16_t x, int16_t y, uint16_t maxW, uint16
         register int16_t right = x+maxW;
         register int16_t scrolleft = scrolled;
         int16_t limL = cuts[line];
-        int16_t limR = 239-cuts[line];
+        int16_t limR = (WIDTH-1)-cuts[line];
         while(*p){
             register uint8_t charIndex = (*p) - ' ';//first char
             if(charIndex <= 127){
@@ -311,7 +350,7 @@ static __force_inline void printLine32(int16_t x, int16_t y, uint16_t maxW, uint
         register int16_t right = x+maxW;
         register int16_t scrolleft = scrolled;
         int16_t limL = cuts[line];
-        int16_t limR = 239-cuts[line];
+        int16_t limR = (WIDTH-1)-cuts[line];
         while(*p){
             register uint8_t charIndex = (*p) - ' ';//first char
             if(charIndex <= 127){
@@ -374,11 +413,6 @@ void __not_in_flash_func(GC9A01_run)(){
         uint32_t bri=(sin(10.f*time_us_32()/1000000)+1)/2*1023;
 		pwm_set_gpio_level(GC9A01_BLCTRL,(bri*bri/1024)/2+128);
 
-       /* #define dist(x1,y1,x2,y2) (sqrt(((float)x1-x2)*((float)x1-x2) + ((float)y1-y2)*((float)y1-y2)))
-        
-		#define ARG time_us_32()/4
-		#define CLAMP(X) ((X>239)?239:(X<0)?0:X)*/
-
         //render
         unsigned long render_start_time = time_us_32();
         
@@ -389,7 +423,7 @@ void __not_in_flash_func(GC9A01_run)(){
             }
         }*/
         static int x=120,y=120;
-        fillScreen(/*(*knob_angle)>>(6+4)*/0x7);
+        fillScreen(/*(*knob_angle)>>(6+4)*/0x0);
 
         int16_t Yval = (Ytilt>0?-Ytilt/32:-Ytilt/16);
         int16_t Xval = -Xtilt/20+25;
@@ -409,9 +443,12 @@ void __not_in_flash_func(GC9A01_run)(){
         //drawRectGradientH(x,y,64,64, 0xff00,0x00ff);
         //drawRectGradientV(x+64,y+64,64,64, 0xff00,0x00ff);
         //drawRectangle(120,120,1,1, 0xffff);
-        drawImage(120,120,cool_s_height, cool_s_width, cool_s_data);
-        drawRotatedImage(x,y,cool_s_height, cool_s_width, -((*knob_angle)*360)<<(16-14), cool_s_data);
-        drawRotatedLine(x,y,cool_s_height, cool_s_width, ((*knob_angle)*360)<<(16-14), 0x00ff);
+        //drawImage(120,120,cool_s_height, cool_s_width, cool_s_data);
+        //drawRotatedImage(x,y,cool_s_height, cool_s_width, -((*knob_angle)*360)<<(16-14), cool_s_data);
+        //drawRotatedLine(x,y,cool_s_height, cool_s_width, ((*knob_angle)*360)<<(16-14), 0x00ff);
+        //drawRotatedLineRoundEdges(x,y,x+100*sin((*knob_angle*360.0)/16/1024*DEG2RAD), y+100*cos((*knob_angle*360.0)/16/1024*DEG2RAD), 20, 0x00ff);
+        drawPartialCircleFrac(x,y,/*100.0*(*knob_angle)*4*/20<<16,0x00ff, (*knob_angle)*4);
+        //drawRectangle(120,120,1,1, 0xffff);
         //printLine(x-128,y, 150, 50*(*knob_angle)/16/1024, "Roxilina",0xff00,1);
         //printLine32(x-128,y+32, 150, 50*(*knob_angle)/16/1024, "Roxipod",0xff00,1);
         
@@ -432,7 +469,7 @@ void __not_in_flash_func(GC9A01_run)(){
         gpio_set_function(GC9A01_DAT, GPIO_FUNC_SIO);
 
         gpio_put(GC9A01_CSN,1);
-        LCD_SetPos(0,0,239,239);
+        LCD_SetPos(0,0,(WIDTH-1),(HEIGHT-1));
         gpio_put(GC9A01_D_C,1);
         gpio_put(GC9A01_CSN,0); D
         gpio_set_dir(GC9A01_DAT,GPIO_OUT);

@@ -43,7 +43,7 @@ int main(){
         char buf[100];
         //sprintf(buf,"%p %p %08x \n",dbgptr(), dbgptr2(), dbgint());
         //sprintf(buf,"%f \n",dbgfloat());
-        sprintf(buf,"%u \n",dbgint());
+        sprintf(buf,"%d \n",dbgint());
         tud_cdc_n_write(0, buf, strlen(buf));
         
         check_boot_button();
