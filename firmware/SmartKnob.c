@@ -2,7 +2,6 @@
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
 #include <pico/bootrom.h>
-#include "Settings.h"
 
 
 #include "HX711.h"
@@ -13,6 +12,8 @@
 #include "Motor.h"
 #include "GC9A01.h"
 #include "boot_button.h"
+
+#include "Settings.h"
 
 #define CORE1_STACK_SIZE 512
 
@@ -28,15 +29,15 @@ int main(){
     HX711_init();
     Motor_init(&knob_angle);
     GC9A01_init(&knob_angle);
+    multicore_launch_core1_with_stack(GC9A01_run, (uint32_t*)stack_core1, CORE1_STACK_SIZE);
     bool enter_settings = check_button_enter_settings();
     if(enter_settings){
-        //settings_menu();
-        reset_usb_boot(0,0);
+        settings_menu();
+        //reset_usb_boot(0,0);
     }
     tusb_init();
     
     int millis=0;
-    multicore_launch_core1_with_stack(GC9A01_run, (uint32_t*)stack_core1, CORE1_STACK_SIZE);
     while(1){
         WS2812_refresh(knob_angle);
         service_usb();

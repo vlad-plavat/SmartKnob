@@ -1,6 +1,7 @@
 #ifndef _SETTINGS_H
 #define _SETTINGS_H
 
+#include "GC9A01.h"
 #define SETTINGS_OFFSET (2*1024*1024 - 4*1024)
 
 struct Settings{//should use 256 bytes (1 writable FLASH page)

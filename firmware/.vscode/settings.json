@@ -21,6 +21,7 @@
         "cursor_image.h": "c",
         "cursor32.h": "c",
         "random": "c",
-        "draw_functions.h": "c"
+        "draw_functions.h": "c",
+        "pio.h": "c"
     }
 }

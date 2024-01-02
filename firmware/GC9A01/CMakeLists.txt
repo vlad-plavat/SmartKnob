@@ -16,4 +16,5 @@ target_link_libraries(GC9A01 pico_stdlib
                         hardware_dma
                         hardware_pio
                         hardware_pwm
+                        pico_multicore
                         )

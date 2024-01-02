@@ -1,6 +1,8 @@
 #ifndef _GC9A01_H
 #define _GC9A01_H
 
+#include "commands.h"
+
 #define GC9A01_RST 22
 #define GC9A01_D_C 26
 #define GC9A01_BLCTRL 27

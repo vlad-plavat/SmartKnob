@@ -282,7 +282,9 @@ void __not_in_flash_func(drawPartialCircleFrac)(int32_t x, int32_t y, int32_t ra
     }
 }
 
-#define drawCircleFrac(x,y,r,c) {drawPartialCircleFrac((x),(y),(r),(c),0xffff);}
+static __force_inline void drawCircleFrac(int32_t x, int32_t y, int32_t r, uint16_t c){
+    drawPartialCircleFrac(x,y,r,c,0xffff);
+}
 
 static __force_inline void drawRotatedLineRoundEdges(int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t thickness, uint16_t color){
     drawRotatedLine(x1,y1,x2,y2,thickness,color);
