@@ -16,6 +16,7 @@
 #define GC9A01_PIO pio1
 
 void __not_in_flash_func(GC9A01_run)();
+uint16_t __not_in_flash_func(lengthOf)(const char *s);
 void GC9A01_init();
 void *dbgptr();
 void *dbgptr2();

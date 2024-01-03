@@ -18,7 +18,12 @@
 #define PRINT_LINE 0x0D
 #define PRINT_LINE_BIG 0x0E
 
-enum Images{SMART_KNOB=0, NUM_PREDEFINED_IMAGES};
+#define WRITE_STRING 0x10
+
+#define FRAME_SWAPPED 0x10
+
+enum Images{SMART_KNOB=0, CROSSHAIR_CALIB, LEDRING, BRIGHTNESS_IMG, 
+            START_APP_IMG, POWER_IMG, MOUSE_IMG, JOYSTICK_IMG, NUM_PREDEFINED_IMAGES};
 typedef struct predefined_image{
     void *image;
     uint8_t w,h;

@@ -14,6 +14,8 @@
 //therefore, reload value doesn't matter
 #define DMA_RELOAD_VAL (0xffffffff-1)
 
+extern uint32_t knob_angle;
+
 void MT6701_init(uint32_t* angle);
 
 #endif

@@ -17,7 +17,6 @@
 
 #define CORE1_STACK_SIZE 512
 
-uint32_t knob_angle;
 uint8_t stack_core1[CORE1_STACK_SIZE];
 
 int main(){

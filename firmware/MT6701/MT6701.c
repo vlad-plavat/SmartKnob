@@ -5,8 +5,9 @@
 #include "spi_read.pio.h"
 #include "MT6701.h"
 
-void MT6701_init(uint32_t* angle) {
+uint32_t knob_angle;
 
+void MT6701_init(uint32_t* angle) {
     
     //configure state machine
     PIO pio = MT6701_PIO;

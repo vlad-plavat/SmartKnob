@@ -404,7 +404,7 @@ void __not_in_flash_func(printLine32)(int16_t x, int16_t y, uint16_t maxW, uint1
     }
 }
 
-static __force_inline uint16_t lengthOf(const char *s){
+uint16_t __not_in_flash_func(lengthOf)(const char *s){
     const char *p = s;
     register uint16_t width = 0;
     while(*p){

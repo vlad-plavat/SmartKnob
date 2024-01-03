@@ -13,9 +13,9 @@ uint32_t *rotor_angle;
 void Motor_task(){
     float ph = 360.0-(*rotor_angle)*360.0/1024/16-14.7;
 
-    pwm_set_both_levels(ph_a,(sin(ph      *DEG2RAD*5)+1.01)*200,0);
-    pwm_set_both_levels(ph_b,(sin((ph+120/5)*DEG2RAD*5)+1.01)*200,0);
-    pwm_set_both_levels(ph_c,(sin((ph+240/5)*DEG2RAD*5)+1.01)*200,0);
+    pwm_set_both_levels(ph_a,(sin(ph      *DEG2RAD*5)+1.01)*50,0);
+    pwm_set_both_levels(ph_b,(sin((ph+120/5)*DEG2RAD*5)+1.01)*50,0);
+    pwm_set_both_levels(ph_c,(sin((ph+240/5)*DEG2RAD*5)+1.01)*50,0);
     
 }
 

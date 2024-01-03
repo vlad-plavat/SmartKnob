@@ -22,6 +22,10 @@
         "cursor32.h": "c",
         "random": "c",
         "draw_functions.h": "c",
-        "pio.h": "c"
+        "pio.h": "c",
+        "crosshair.h": "c",
+        "ledring.h": "c",
+        "brightness_img.h": "c",
+        "spi_read.pio.h": "c"
     }
 }

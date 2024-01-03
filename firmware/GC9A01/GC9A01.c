@@ -58,13 +58,27 @@ float dbgfloat(){
 
 
 #include "images/smartknob_image.h"
+#include "images/joystick_img.h"
+#include "images/mouse_img.h"
 #include "images/cursor_image.h"
 #include "images/cursor32.h"
 #include "images/cool_s.h"
+#include "images/crosshair.h"
+#include "images/ledring.h"
+#include "images/brightness_img.h"
+#include "images/start_app_img.h"
+#include "images/power_img.h"
 #include "images/font16.h"
 
 predefined_image predefined_image_array[NUM_PREDEFINED_IMAGES]={
 {.image=smartknob_image_data, .h=smartknob_image_height, .w=smartknob_image_width},
+{.image=crosshair_data      , .h=crosshair_height,       .w=crosshair_width},
+{.image=ledring_data        , .h=ledring_height,         .w=ledring_width},
+{.image=brightness_img_data , .h=brightness_img_height,  .w=brightness_img_width},
+{.image=start_app_img_data  , .h=start_app_img_height,   .w=start_app_img_width},
+{.image=power_img_data      , .h=power_img_height,       .w=power_img_width},
+{.image=mouse_img_data      , .h=mouse_img_height,       .w=mouse_img_width},
+{.image=joystick_img_data   , .h=joystick_img_height,    .w=joystick_img_width},
 };
 
 #include "draw_functions.h"
@@ -80,6 +94,7 @@ int *nr_instr = &nr_instr1;
 instruction instr1[NR_MAX_INSTRUCTIONS],instr2[NR_MAX_INSTRUCTIONS];
 instruction *instruction_list = instr1;
 volatile uint8_t swap_lists = 0;
+char strgraph[256];
 
 static __force_inline void render(){
         unsigned long render_start_time = time_us_32();
@@ -88,6 +103,7 @@ static __force_inline void render(){
         irq_set_enabled(SIO_IRQ_PROC1, false);   
         if(swap_lists){
             swap_lists = 0;
+            multicore_fifo_push_blocking(FRAME_SWAPPED);
             if(instruction_list == instr1){
                 instruction_list = instr2;
                 nr_instr = &nr_instr2;
@@ -117,13 +133,19 @@ static __force_inline void render(){
                 drawRectGradientV(ins.x, ins.y, ins.arg3, ins.arg4,
                 ins.arg5, ins.arg6);
             }else if(ins.instr == DRAW_IMAGE){
-                drawImage(ins.x, ins.y, predefined_image_array[ins.arg3].h, predefined_image_array[ins.arg3].w,
+                drawImage(ins.x - ins.arg8*predefined_image_array[ins.arg3].w/2,
+                          ins.y - ins.arg8*predefined_image_array[ins.arg3].h/2,
+                predefined_image_array[ins.arg3].h, predefined_image_array[ins.arg3].w,
                 predefined_image_array[ins.arg3].image);
             }else if(ins.instr == ROTATED_SCALED_IMAGE){
-                drawRotatedScaledImage(ins.x, ins.y, predefined_image_array[ins.arg3].h, predefined_image_array[ins.arg3].w,
+                drawRotatedScaledImage(ins.x - ins.arg8*predefined_image_array[ins.arg3].w/2,
+                                        ins.y - ins.arg8*predefined_image_array[ins.arg3].h/2,
+                predefined_image_array[ins.arg3].h, predefined_image_array[ins.arg3].w,
                 ins.arg4,predefined_image_array[ins.arg3].image, ins.arg5, ins.arg6);
             }else if(ins.instr == ROTATED_IMAGE){
-                drawRotatedImage(ins.x, ins.y, predefined_image_array[ins.arg3].h, predefined_image_array[ins.arg3].w,
+                drawRotatedImage(ins.x - ins.arg8*predefined_image_array[ins.arg3].w/2,
+                                ins.y - ins.arg8*predefined_image_array[ins.arg3].h/2,
+                predefined_image_array[ins.arg3].h, predefined_image_array[ins.arg3].w,
                 ins.arg4,predefined_image_array[ins.arg3].image);
             }else if(ins.instr == DRAW_LINE){
                 drawRotatedLine(ins.x, ins.y, ins.arg3, ins.arg4,
@@ -138,9 +160,9 @@ static __force_inline void render(){
             }else if(ins.instr == FILL_SCREEN){
                 fillScreen(ins.x);
             }else if(ins.instr == PRINT_LINE){
-                printLine(ins.x, ins.y, ins.arg3, ins.arg4, "HELLO", ins.arg6, ins.arg7);
+                printLine(ins.x, ins.y, ins.arg3, ins.arg4, strgraph, ins.arg6, ins.arg7);
             }else if(ins.instr == PRINT_LINE_BIG){
-                printLine32(ins.x, ins.y, ins.arg3, ins.arg4, "HELLO", ins.arg6, ins.arg7);
+                printLine32(ins.x, ins.y, ins.arg3, ins.arg4, strgraph, ins.arg6, ins.arg7);
             }
         }
         /*static int x=120,y=120;
@@ -187,10 +209,17 @@ void fifo_rcv_interrupt() {
         uint32_t data = multicore_fifo_pop_blocking();
         int *nr_instr_local = nr_instr==&nr_instr1?&nr_instr2:&nr_instr1;
         instruction *instruction_list_local = instruction_list==instr1?instr2:instr1;
-        if(data == 0x01){
+        if(data == START_EDIT){
             *nr_instr_local = 0;
-        }else if(data == 0x02){
+        }else if(data == SUBMIT_LIST){
             swap_lists = 1;
+        }else if(data == WRITE_STRING){
+            int i=0;
+            char c;
+            do{
+                c = multicore_fifo_pop_blocking();
+                strgraph[i++]=c;
+            }while(c!='\0' && i!=256);
         }else{
             if((*nr_instr_local) == NR_MAX_INSTRUCTIONS){
                 for(int i=0; i<8; i++)multicore_fifo_pop_blocking();
