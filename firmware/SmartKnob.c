@@ -43,11 +43,11 @@ int main(){
         char buf[100];
         //sprintf(buf,"%p %p %08x \n",dbgptr(), dbgptr2(), dbgint());
         //sprintf(buf,"%f \n",dbgfloat());
-        sprintf(buf,"%d \n",dbgint());
+        sprintf(buf,"%4d %4d %4d %f\n", motor_dbg_a, motor_dbg_b, motor_dbg_c, ph);
         tud_cdc_n_write(0, buf, strlen(buf));
         
         check_boot_button();
-        //Motor_task();
+        Motor_task();
         if(millis==100){
             millis=0;
             HX711_update();

@@ -54,6 +54,7 @@ void settings_menu(){
     
     enum Images images[6]={JOYSTICK_IMG,CROSSHAIR_CALIB,BRIGHTNESS_IMG,LEDRING,START_APP_IMG,POWER_IMG};
 
+    Motor_set_mode_detents(6, knob_angle);
     while(1){
         float anglef = 360-(knob_angle*360/16/1024);
 

@@ -26,6 +26,7 @@
         "crosshair.h": "c",
         "ledring.h": "c",
         "brightness_img.h": "c",
-        "spi_read.pio.h": "c"
+        "spi_read.pio.h": "c",
+        "cmath": "c"
     }
 }

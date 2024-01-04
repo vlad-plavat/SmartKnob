@@ -7,7 +7,11 @@
 
 #define PWM_RESOLUTION 1000
 
+extern int motor_dbg_a, motor_dbg_b, motor_dbg_c;
+extern float ph;
+
 void Motor_init();
 void Motor_task();
+void Motor_set_mode_detents(int detents, int32_t offset);
 
 #endif
