@@ -8,7 +8,8 @@
 #define PWM_RESOLUTION 1000
 
 extern int motor_dbg_a, motor_dbg_b, motor_dbg_c;
-extern float ph;
+extern float ph, angle_full_rot, ang_speed, power;
+extern int32_t num_ovfl;
 
 void Motor_init();
 void Motor_task();

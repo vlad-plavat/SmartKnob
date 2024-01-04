@@ -54,9 +54,13 @@ void settings_menu(){
     
     enum Images images[6]={JOYSTICK_IMG,CROSSHAIR_CALIB,BRIGHTNESS_IMG,LEDRING,START_APP_IMG,POWER_IMG};
 
-    Motor_set_mode_detents(6, knob_angle);
+    float knob_offset = knob_angle;
+    Motor_set_mode_detents(6, knob_offset);
+    knob_offset = 360.0-knob_offset*360.0/1024/16;
     while(1){
         float anglef = 360-(knob_angle*360/16/1024);
+        anglef -= knob_offset;
+        while(anglef<0)anglef+=360;
 
         multicore_fifo_push_blocking(START_EDIT);
 
@@ -64,22 +68,37 @@ void settings_menu(){
         multicore_fifo_push_blocking(0x1D5E);fill(7);
 
         for(int i=0; i<6; i++){
-            int32_t sinof = sin((anglef+i*60)*DEG2RAD)*(64.0*1024);
-            int32_t cosof = cos((anglef+i*60)*DEG2RAD)*(64.0*1024);
+            int32_t sinof = sin((anglef+90+i*60)*DEG2RAD)*(64.0*1024);
+            int32_t cosof = cos((anglef+90+i*60)*DEG2RAD)*(64.0*1024);
             multicore_fifo_push_blocking(DRAW_IMAGE);
-            multicore_fifo_push_blocking(120+FIX_TO_PX(cosof*120));
-            multicore_fifo_push_blocking(0+FIX_TO_PX(sinof*120));
+            multicore_fifo_push_blocking(120+FIX_TO_PX(cosof*150));
+            multicore_fifo_push_blocking(-30+FIX_TO_PX(sinof*150));
             multicore_fifo_push_blocking(images[i]);multicore_fifo_push_blocking(15<<16);
             multicore_fifo_push_blocking(1<<16);multicore_fifo_push_blocking(1<<15);
             multicore_fifo_push_blocking(0);multicore_fifo_push_blocking(1);
-
         }
         
-        multicore_fifo_push_blocking(WRITE_STRING);
-        push_string("Ceva text");
+        int on_setting;
+        float angle_add = anglef + 30;
+        if(angle_add>360)angle_add-=360;
+        for(on_setting = 1; on_setting<7; on_setting++){
+            if(60*on_setting-45 < angle_add && angle_add < 60*on_setting-15){
+                break;
+            }
+        }
+        char *s="";
+        if(on_setting==1) s = "Mode";
+        if(on_setting==2) s = "2";
+        if(on_setting==3) s = "3";
+        if(on_setting==4) s = "4";
+        if(on_setting==5) s = "5";
+        if(on_setting==6) s = "6";
 
-        multicore_fifo_push_blocking(PRINT_LINE);
-        multicore_fifo_push_blocking(120-lengthOf("Ceva text")/2);
+        multicore_fifo_push_blocking(WRITE_STRING);
+        push_string(s);
+
+        multicore_fifo_push_blocking(PRINT_LINE_BIG);
+        multicore_fifo_push_blocking(120-lengthOf(s));
         multicore_fifo_push_blocking(178);
         multicore_fifo_push_blocking(10000);multicore_fifo_push_blocking(0);
         multicore_fifo_push_blocking(0);multicore_fifo_push_blocking(0xe2c2);

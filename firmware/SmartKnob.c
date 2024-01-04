@@ -43,7 +43,7 @@ int main(){
         char buf[100];
         //sprintf(buf,"%p %p %08x \n",dbgptr(), dbgptr2(), dbgint());
         //sprintf(buf,"%f \n",dbgfloat());
-        sprintf(buf,"%4d %4d %4d %f\n", motor_dbg_a, motor_dbg_b, motor_dbg_c, ph);
+        sprintf(buf,"%4d %4d %4d %10f %10f\n", motor_dbg_a, motor_dbg_b, num_ovfl, angle_full_rot, power);
         tud_cdc_n_write(0, buf, strlen(buf));
         
         check_boot_button();
