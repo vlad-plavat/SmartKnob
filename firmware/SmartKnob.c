@@ -5,15 +5,16 @@
 
 
 #include "HX711.h"
+#include "MT6701.h"
 #include "usb.h"
 #include "utils.h"
-#include "MT6701.h"
 #include "WS2812.h"
 #include "Motor.h"
 #include "GC9A01.h"
 #include "boot_button.h"
 
 #include "Settings.h"
+#include "modes.h"
 
 #define CORE1_STACK_SIZE 512
 
@@ -34,6 +35,9 @@ int main(){
         settings_menu();
         //reset_usb_boot(0,0);
     }
+    if(settings.mode == JOYSTICK_MODE) init_as_joystick();
+    if(settings.mode == MOUSE_MODE) init_as_mouse();
+    if(settings.mode == SMART_MODE) init_as_smartknob();
     tusb_init();
     
     int millis=0;
@@ -41,24 +45,15 @@ int main(){
         WS2812_refresh(knob_angle);
         service_usb();
         char buf[100];
-        //sprintf(buf,"%p %p %08x \n",dbgptr(), dbgptr2(), dbgint());
-        //sprintf(buf,"%f \n",dbgfloat());
-        sprintf(buf,"%4d %4d %4d %10f %10f\n", motor_dbg_a, motor_dbg_b, num_ovfl, angle_full_rot, power);
+
+        sprintf(buf,"%7ld %7ld %7ld\n", Xtilt, Ytilt, Press );
         tud_cdc_n_write(0, buf, strlen(buf));
         
         check_boot_button();
         Motor_task();
+        HX711_update();
         if(millis==100){
             millis=0;
-            HX711_update();
-
-            /*for(int i=0; i<240; i++){
-                sprintf(buf,"%p ",((uint16_t **)dbgptr())[i]);
-                tud_cdc_n_write(0, buf, strlen(buf));
-                service_usb();
-                tud_cdc_write_flush();
-            }
-            tud_cdc_n_write(0, "\n\n\n", 3);*/
         }
         sleep_ms(1);
         millis++;

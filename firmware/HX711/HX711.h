@@ -12,6 +12,8 @@
 #define DMA_RELOAD_VAL (0xffffffff-1)
 
 extern int32_t Xtilt, Ytilt, Press;
+extern int32_t Xdma, Ydma, Pdma;
+extern int32_t PressLimit1, PressLimit2;
 
 void HX711_update();
 void HX711_init();

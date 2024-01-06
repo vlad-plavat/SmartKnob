@@ -8,6 +8,7 @@
 int32_t Xtilt, Ytilt, Press;
 int32_t Xdma, Ydma, Pdma;
 uint HX711_X_sm, HX711_Y_sm, HX711_P_sm;
+int32_t PressLimit1=3500, PressLimit2=4500;
 
 void HX711_update(){
 
@@ -17,13 +18,13 @@ void HX711_update(){
     if(Pm&0x00800000) Pm |= 0xff000000;
 
     Xm/=1024;Ym/=1024;Pm/=1024;
-    Xm -= -350;
-    Ym -= -328;
-    Pm -= -1970;
+    Xm -= 884;
+    Ym -= -1449;
+    Pm -= -690;
      
-    Xtilt = Xm*1.177 +Ym*2.007 +Pm*1.172;
-    Ytilt = Xm*-0.959+Ym*-4.742+Pm*-2.508;
-    Press = Xm*-0.332+Ym*2.642 +Pm*2.940;
+    Xtilt = Xm*0.741 +Ym*0.806 +Pm*0.691;
+    Ytilt = Xm*-0.874+Ym*-3.878+Pm*-2.052;
+    Press = Xm*-1.212+Ym*4.526 +Pm*6.427;
     Press *= 2;
 }
 

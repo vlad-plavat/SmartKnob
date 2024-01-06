@@ -88,7 +88,8 @@ static inline void GC9A01_Initial(void)
 
 
     gpio_set_function(GC9A01_RST, GPIO_FUNC_SIO);
-    gpio_set_function(GC9A01_BLCTRL, GPIO_FUNC_SIO);
+	if(gpio_get_function(GC9A01_BLCTRL)!=GPIO_FUNC_PWM)
+    	gpio_set_function(GC9A01_BLCTRL, GPIO_FUNC_SIO);
     gpio_set_function(GC9A01_D_C, GPIO_FUNC_SIO);
     gpio_set_function(GC9A01_CSN, GPIO_FUNC_SIO);
     gpio_set_function(GC9A01_CLK, GPIO_FUNC_SIO);

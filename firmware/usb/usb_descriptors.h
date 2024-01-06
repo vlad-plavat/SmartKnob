@@ -25,6 +25,10 @@
 #ifndef USB_DESCRIPTORS_H_
 #define USB_DESCRIPTORS_H_
 
+#define USB_JOYSTICK 0
+#define USB_MOUSE 1
+#define USB_SMART 2
+extern uint8_t usb_mode;//0-joystick, 1-mouse, 2-smart
 enum
 {
   REPORT_ID_GAMEPAD = 1,

@@ -293,7 +293,12 @@ static __force_inline void drawRotatedLineRoundEdges(int32_t x1, int32_t y1, int
 }
 
 static __force_inline void fillScreen(uint16_t color){
-    memset(frame[0],color,pixcount*2);
+    uint16_t *p = frame[0];
+    uint16_t *p2 = p + pixcount;
+    while(p!=p2){
+        *p = color;
+        p++;
+    }
 }
 
 void __not_in_flash_func(printLine)(int16_t x, int16_t y, uint16_t maxW, uint16_t scrolled, char *s, uint16_t color, uint8_t italic){

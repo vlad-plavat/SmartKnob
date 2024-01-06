@@ -48,6 +48,7 @@ target_link_libraries(SmartKnob pico_stdlib
                         hardware_pwm
                         hardware_adc
                         hardware_flash
+                        hardware_watchdog
                         pico_multicore
                         MT6701
                         WS2812

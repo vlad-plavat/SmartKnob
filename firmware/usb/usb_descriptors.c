@@ -26,6 +26,8 @@
 #include "tusb.h"
 #include "usb_descriptors.h"
 
+uint8_t usb_mode;//0-joystick, 1-mouse, 2-smart
+
 /* A combination of interfaces must have a unique product id, since PC will save device driver after the first plug.
  * Same VID/PID with different interface e.g MSC (first), then CDC (later) will possibly cause system error on PC.
  *
@@ -79,7 +81,7 @@ enum
 {
   ITF_NUM_CDC = 0,
   ITF_NUM_CDC_DATA,
-  INTF_NUM_HID_GAMEPAD,
+  INTF_NUM_HID_DATA,
   ITF_NUM_TOTAL
 };
 
@@ -91,6 +93,7 @@ enum
 #define EPNUM_CDC_IN      0x82
 
 #define EPNUM_HID_IN      0x83
+#define EPNUM_HID_OUT     0x03
 
 
 
@@ -102,9 +105,17 @@ enum
 // HID Report Descriptor
 //--------------------------------------------------------------------+
 
-uint8_t const desc_hid_report[] =
+uint8_t const desc_hid_report_gamepad[] =
 {
   TUD_HID_REPORT_DESC_GAMEPAD   ( HID_REPORT_ID(REPORT_ID_GAMEPAD            )),
+};
+uint8_t const desc_hid_report_mouse[] =
+{
+  TUD_HID_REPORT_DESC_MOUSE   ( HID_REPORT_ID(REPORT_ID_GAMEPAD            )),
+};
+uint8_t const desc_hid_report_smartknob[] =
+{
+  TUD_HID_REPORT_DESC_GENERIC_INOUT   (64,  HID_REPORT_ID(REPORT_ID_GAMEPAD            )),
 };
 
 // Invoked when received GET HID REPORT DESCRIPTOR
@@ -113,7 +124,11 @@ uint8_t const desc_hid_report[] =
 uint8_t const * tud_hid_descriptor_report_cb(uint8_t instance)
 {
   (void) instance;
-  return desc_hid_report;
+  if(usb_mode == USB_JOYSTICK)
+    return desc_hid_report_gamepad;
+  if(usb_mode == USB_MOUSE)
+    return desc_hid_report_mouse;
+  return desc_hid_report_smartknob;
 }
 
 
@@ -121,10 +136,11 @@ uint8_t const * tud_hid_descriptor_report_cb(uint8_t instance)
 
 
 #define  CONFIG_TOTAL_LEN  (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_HID_DESC_LEN)
+#define  CONFIG_TOTAL_LEN_SMART (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_HID_INOUT_DESC_LEN)
 
 
 // full speed configuration
-uint8_t const desc_fs_configuration[] =
+uint8_t const desc_fs_configuration_gamepad[] =
 {
   // Config number, interface count, string index, total length, attribute, power in mA
   TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x00, 100),
@@ -132,7 +148,33 @@ uint8_t const desc_fs_configuration[] =
   // Interface number, string index, EP notification address and size, EP data address (out, in) and size.
   TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 4, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, EPNUM_CDC_IN, 64),
 
-  TUD_HID_DESCRIPTOR(INTF_NUM_HID_GAMEPAD, 0, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_report), EPNUM_HID_IN, CFG_TUD_HID_EP_BUFSIZE, 2)
+  TUD_HID_DESCRIPTOR(INTF_NUM_HID_DATA, 0, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_report_gamepad), EPNUM_HID_IN, CFG_TUD_HID_EP_BUFSIZE, 2)
+  // Interface number, string index, EP Out & EP In address, EP size
+  //TUD_MSC_DESCRIPTOR(ITF_NUM_MSC, 5, EPNUM_MSC_OUT, EPNUM_MSC_IN, 64),
+};
+// full speed configuration
+uint8_t const desc_fs_configuration_mouse[] =
+{
+  // Config number, interface count, string index, total length, attribute, power in mA
+  TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x00, 100),
+
+  // Interface number, string index, EP notification address and size, EP data address (out, in) and size.
+  TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 4, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, EPNUM_CDC_IN, 64),
+
+  TUD_HID_DESCRIPTOR(INTF_NUM_HID_DATA, 0, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_report_mouse), EPNUM_HID_IN, CFG_TUD_HID_EP_BUFSIZE, 2)
+  // Interface number, string index, EP Out & EP In address, EP size
+  //TUD_MSC_DESCRIPTOR(ITF_NUM_MSC, 5, EPNUM_MSC_OUT, EPNUM_MSC_IN, 64),
+};
+// full speed configuration
+uint8_t const desc_fs_configuration_smartknob[] =
+{
+  // Config number, interface count, string index, total length, attribute, power in mA
+  TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN_SMART, 0x00, 100),
+
+  // Interface number, string index, EP notification address and size, EP data address (out, in) and size.
+  TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 4, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, EPNUM_CDC_IN, 64),
+
+  TUD_HID_INOUT_DESCRIPTOR(INTF_NUM_HID_DATA, 0, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_report_smartknob), EPNUM_HID_OUT, EPNUM_HID_IN, CFG_TUD_HID_EP_BUFSIZE, 1)
   // Interface number, string index, EP Out & EP In address, EP size
   //TUD_MSC_DESCRIPTOR(ITF_NUM_MSC, 5, EPNUM_MSC_OUT, EPNUM_MSC_IN, 64),
 };
@@ -149,7 +191,11 @@ uint8_t const * tud_descriptor_configuration_cb(uint8_t index)
     // Although we are highspeed, host may be fullspeed.
     return (tud_speed_get() == TUSB_SPEED_HIGH) ?  desc_hs_configuration : desc_fs_configuration;
   #else
-    return desc_fs_configuration;
+    if(usb_mode == USB_JOYSTICK)
+      return desc_fs_configuration_gamepad;
+    if(usb_mode == USB_MOUSE)
+      return desc_fs_configuration_mouse;
+    return desc_fs_configuration_smartknob;
   #endif
 }
 

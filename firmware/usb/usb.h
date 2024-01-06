@@ -18,9 +18,7 @@ struct repeating_timer timer;
 
 unsigned long prevtm=0,crtm;
 
-unsigned long lastUsbService = 0;
 unsigned long millis = 0;
-unsigned long lastBIOSWrite;
 
 bool repeating_timer_callback(struct repeating_timer *t) {
     (void) t;
@@ -146,9 +144,8 @@ int abs(int x){
 // USB HID
 //--------------------------------------------------------------------+
 
-static void send_hid_report(uint8_t report_id, uint32_t btn)
+static void send_hid_report(uint8_t report_id)
 {
-  (void)btn;
   // skip if hid is not ready yet
   if ( !tud_hid_ready() ) return;
 
@@ -157,10 +154,11 @@ static void send_hid_report(uint8_t report_id, uint32_t btn)
       // use to avoid send multiple consecutive zero report for keyboard
       //static bool has_gamepad_key = false;
 
-//extern int32_t Xtilt, Ytilt, Press;
-//dbgprintf("%ld %ld %ld\n",Xtilt, Ytilt, Press);
-      int16_t Yval = (Ytilt>0?-Ytilt/32:-Ytilt/16);
-      int16_t Xval = -Xtilt/20+25;
+    if(usb_mode == USB_JOYSTICK){
+      //extern int32_t Xtilt, Ytilt, Press;
+      //dbgprintf("%ld %ld %ld\n",Xtilt, Ytilt, Press);
+      int16_t Yval = (Ytilt>0?-Ytilt/20:-Ytilt/16);
+      int16_t Xval = -Xtilt/16;
       if(!(abs(-Xtilt/24)>64 || abs(Yval)>64)){
         Xval = Yval = 0;
       }
@@ -171,7 +169,14 @@ static void send_hid_report(uint8_t report_id, uint32_t btn)
 
       static uint32_t prevprtm = 0;
       static uint8_t prevpr = 0;
-      uint8_t crpr = Press>1700;
+      static float prev_knob_angle;
+      float cr_angle = 360.0-knob_angle*360.0/1024/16;
+      float delta = cr_angle - prev_knob_angle;
+      if(delta > 180){delta-=360;}if(delta < -180){delta+=360;}
+      int32_t rx = delta*4;if(rx>127){rx=127;}if(rx<-127){rx=-127;}
+      prev_knob_angle = cr_angle;
+
+      uint8_t crpr = Press>PressLimit1;
       uint8_t btn2 = true;
       if(!prevpr && crpr){
         prevprtm  = time_us_32();
@@ -184,25 +189,50 @@ static void send_hid_report(uint8_t report_id, uint32_t btn)
 
       hid_gamepad_report_t report =
       {
-        .x   = Xval, .y = Yval, .z = 0, .rz = 0, .rx = 0, .ry = 0,
-        .hat = 0, .buttons = (Press>2000?GAMEPAD_BUTTON_A:0)|(btn2?GAMEPAD_BUTTON_1:0)
+        .x   = Xval, .y = Yval, .z = rx, .rz = rx, .rx = rx, .ry = rx,
+        .hat = 0, .buttons = (Press>PressLimit2?GAMEPAD_BUTTON_A:0)|(btn2?GAMEPAD_BUTTON_1:0)
       };
 
       tud_hid_report(REPORT_ID_GAMEPAD, &report, sizeof(report));
-      /*if ( btn )
-      {
-        report.hat = GAMEPAD_HAT_UP;
-        report.buttons = GAMEPAD_BUTTON_A;
-        tud_hid_report(REPORT_ID_GAMEPAD, &report, sizeof(report));
+      return;
+    }
+    if(usb_mode == USB_MOUSE){
 
-        has_gamepad_key = true;
-      }else
+      int16_t Yval = (Ytilt>0?-Ytilt/20:-Ytilt/16);
+      int16_t Xval = -Xtilt/16;
+      if(!(abs(Xval)>64 || abs(Yval)>64)){
+        Xval = Yval = 0;
+      }
+      if ( Xval > 127 ) Xval=127;
+      if ( Yval > 127 ) Yval=127;
+      if ( Xval < -128) Xval=-128;
+      if ( Yval < -128) Yval=-128;
+
+      static float prev_knob_angle;
+      float cr_angle = 360.0-knob_angle*360.0/1024/16;
+      float delta = cr_angle - prev_knob_angle;
+      if(delta > 180){delta-=360;}if(delta < -180){delta+=360;}
+      int32_t rx = delta/18;if(rx>127){rx=127;}if(rx<-127){rx=-127;}
+      if(rx){
+        prev_knob_angle = prev_knob_angle + rx*18;
+      }
+
+      hid_mouse_report_t report =
       {
-        report.hat = GAMEPAD_HAT_CENTERED;
-        report.buttons = 0;
-        if (has_gamepad_key) tud_hid_report(REPORT_ID_GAMEPAD, &report, sizeof(report));
-        has_gamepad_key = false;
-      }*/
+        .x   = Xval/10, .y = Yval/10, .wheel = -rx, .pan = 0, 
+        .buttons = (Press>PressLimit2?MOUSE_BUTTON_LEFT:0)
+      };
+
+      tud_hid_report(REPORT_ID_GAMEPAD, &report, sizeof(report));
+      return;
+    }
+    if(usb_mode == USB_SMART){
+      
+      uint8_t report[32]={1,2,3,44,56,6,7,8,9};
+
+      tud_hid_report(REPORT_ID_GAMEPAD, &report, sizeof(report));
+      return;
+    }
   }
 }
 
@@ -211,14 +241,15 @@ static void send_hid_report(uint8_t report_id, uint32_t btn)
 void hid_task(void)
 {
   // Poll every 10ms
-  const uint32_t interval_ms = 10;
+  uint32_t interval_ms = 10;
+  if(usb_mode == USB_SMART)
+    interval_ms = 1;
   static uint32_t start_ms = 0;
 
   if ( board_millis() - start_ms < interval_ms) return; // not enough time
   start_ms += interval_ms;
 
-  uint32_t const btn = /*board_button_read()*/(time_us_32()/1000000)%2;
-
+const uint8_t btn = 0;
   // Remote wakeup
   if ( tud_suspended() && btn )
   {
@@ -228,7 +259,7 @@ void hid_task(void)
   }else
   {
     // Send the 1st of report chain, the rest will be sent by tud_hid_report_complete_cb()
-    send_hid_report(REPORT_ID_GAMEPAD, btn);
+    send_hid_report(REPORT_ID_GAMEPAD);
   }
 }
 
@@ -244,7 +275,7 @@ void tud_hid_report_complete_cb(uint8_t instance, uint8_t const* report, uint16_
 
   if (next_report_id < REPORT_ID_COUNT)
   {
-    send_hid_report(next_report_id, (time_us_32()/1000000)%2);
+    send_hid_report(next_report_id);
   }
 }
 
@@ -273,6 +304,8 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
   (void) buffer;
   (void) bufsize;
 
+  // echo back anything we received from host
+  tud_hid_report(0, buffer, bufsize);
 }
 
 

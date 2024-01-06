@@ -5,6 +5,8 @@
 #include "WS2812.pio.h"
 #include "WS2812.h"
 
+int32_t LED_max_brightness;
+
 uint32_t LEDS[16];
 uint WS2812_sm;
 
@@ -16,15 +18,12 @@ uint32_t ring[16]={0x0f0f0f,0,0,0,0x0f0000,0,0,0, 0x000f00,0,0,0,0x00000f};
 uint32_t WS2812_data[16];
 
 void WS2812_refresh(uint r){
-    /*if(settings.mode == MOUSE_MODE){
-        for (int i = 0; i < NUM_PIXELS/2; ++i)ring[i]=0xff0000;
-    }
-    if(settings.mode == JOYSTICK_MODE){
-        for (int i = 0; i < NUM_PIXELS/2; ++i)ring[i]=0x00ff00;
-    }
-    if(settings.mode == SMART_MODE){
-        for (int i = 0; i < NUM_PIXELS/2; ++i)ring[i]=0x0000ff;
-    }*/
+    static uint32_t prev_call_time = 0;
+    uint32_t cr_call_time = time_us_32();
+    if(cr_call_time - prev_call_time < 1000) return;
+    if(dma_channel_is_busy(WS2812_dma)) return;
+    prev_call_time = cr_call_time;
+
     for (int i = 0; i < NUM_PIXELS; ++i) {
         WS2812_data[i] = (ring[ (i+r*16/(1024*16)) % NUM_PIXELS])<<8;
     }
@@ -37,7 +36,7 @@ void WS2812_init() {
     WS2812_sm = pio_claim_unused_sm(WS2812_PIO, true);
     uint offset = pio_add_program(WS2812_PIO, &ws2812_program);
         
-	ws2812_program_init(WS2812_PIO, WS2812_sm, offset, WS2812_PIN, 800000);
+	ws2812_program_init(WS2812_PIO, WS2812_sm, offset, WS2812_PIN, WS2812_FREQ);
 
     //configure ping-pong DMA
     WS2812_dma = dma_claim_unused_channel(true);

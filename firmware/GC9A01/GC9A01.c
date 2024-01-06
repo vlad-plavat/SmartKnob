@@ -29,8 +29,12 @@ static uint32_t *knob_angle;
 uint16_t pixcount=0;
 
 //uint16_t __attribute__((section (".frameAddress"))) frame1[200][200],frame2[240][240];
+//SCRATCH X is free since core1 stack is in bank0
 
-uint8_t __attribute__((section (".frameAddress"))) filler[8920];
+uint8_t __attribute__((section (".frameAddress"))) image8K[8192];
+uint8_t __attribute__((section (".scratch_x"))) imagae4K[4096];
+uint8_t image32K[32768];
+uint8_t __attribute__((section (".frameAddress"))) filler[728];
 
 uint16_t * __attribute__((section (".frameAddress"))) control_blocks1[241];
 uint16_t * __attribute__((section (".frameAddress"))) control_blocks2[241];
@@ -83,6 +87,8 @@ predefined_image predefined_image_array[NUM_PREDEFINED_IMAGES]={
 
 #include "draw_functions.h"
 
+int32_t LCD_brightness=1024, LCD_max_brightness=0, no_frame_yet=1;
+
 #define NR_MAX_INSTRUCTIONS 20
 typedef struct instruction{
     uint8_t instr;
@@ -93,8 +99,12 @@ int nr_instr1 = 0, nr_instr2 = 0;
 int *nr_instr = &nr_instr1;
 instruction instr1[NR_MAX_INSTRUCTIONS],instr2[NR_MAX_INSTRUCTIONS];
 instruction *instruction_list = instr1;
+
+#define NR_STRINGS 8
+#define MAX_STRING_LENGTH 256
+char strings1[NR_STRINGS][MAX_STRING_LENGTH], strings2[NR_STRINGS][MAX_STRING_LENGTH];
+char (*strings)[MAX_STRING_LENGTH] = strings1;
 volatile uint8_t swap_lists = 0;
-char strgraph[256];
 
 static __force_inline void render(){
         unsigned long render_start_time = time_us_32();
@@ -102,14 +112,17 @@ static __force_inline void render(){
 
         irq_set_enabled(SIO_IRQ_PROC1, false);   
         if(swap_lists){
+            no_frame_yet = 0;
             swap_lists = 0;
             multicore_fifo_push_blocking(FRAME_SWAPPED);
             if(instruction_list == instr1){
                 instruction_list = instr2;
                 nr_instr = &nr_instr2;
+                strings = strings2;
             }else{
                 instruction_list = instr1;
                 nr_instr = &nr_instr1;
+                strings = strings1;
             }
         }
         irq_set_enabled(SIO_IRQ_PROC1, true);
@@ -160,9 +173,13 @@ static __force_inline void render(){
             }else if(ins.instr == FILL_SCREEN){
                 fillScreen(ins.x);
             }else if(ins.instr == PRINT_LINE){
-                printLine(ins.x, ins.y, ins.arg3, ins.arg4, strgraph, ins.arg6, ins.arg7);
+                uint8_t which = ins.arg5;
+                if(which > NR_STRINGS) which = NR_STRINGS - 1;
+                printLine(ins.x, ins.y, ins.arg3, ins.arg4, strings[which], ins.arg6, ins.arg7);
             }else if(ins.instr == PRINT_LINE_BIG){
-                printLine32(ins.x, ins.y, ins.arg3, ins.arg4, strgraph, ins.arg6, ins.arg7);
+                uint8_t which = ins.arg5;
+                if(which > NR_STRINGS) which = NR_STRINGS - 1;
+                printLine32(ins.x, ins.y, ins.arg3, ins.arg4, strings[which], ins.arg6, ins.arg7);
             }
         }
         /*static int x=120,y=120;
@@ -209,16 +226,19 @@ void fifo_rcv_interrupt() {
         uint32_t data = multicore_fifo_pop_blocking();
         int *nr_instr_local = nr_instr==&nr_instr1?&nr_instr2:&nr_instr1;
         instruction *instruction_list_local = instruction_list==instr1?instr2:instr1;
+        char (*strings_local)[MAX_STRING_LENGTH] = strings==strings1?strings2:strings1;
         if(data == START_EDIT){
             *nr_instr_local = 0;
         }else if(data == SUBMIT_LIST){
             swap_lists = 1;
         }else if(data == WRITE_STRING){
+            uint8_t which = multicore_fifo_pop_blocking();
+            if(which > NR_STRINGS) which = NR_STRINGS - 1;
             int i=0;
             char c;
             do{
                 c = multicore_fifo_pop_blocking();
-                strgraph[i++]=c;
+                strings_local[which][i++]=c;
             }while(c!='\0' && i!=256);
         }else{
             if((*nr_instr_local) == NR_MAX_INSTRUCTIONS){
@@ -246,9 +266,6 @@ void __not_in_flash_func(GC9A01_run)(){
     irq_set_exclusive_handler(SIO_IRQ_PROC1, fifo_rcv_interrupt);
     irq_set_enabled(SIO_IRQ_PROC1, true);
     while(1){
-        
-        uint32_t bri=(sin(10.f*time_us_32()/1000000)+1)/2*1023;
-		pwm_set_gpio_level(GC9A01_BLCTRL,(bri*bri/1024)/2+128);
 
         render();
 
@@ -258,6 +275,10 @@ void __not_in_flash_func(GC9A01_run)(){
         while(!first && !DMA_DONE){
             //continue;
         }
+        if(!first){
+            pwm_set_gpio_level(GC9A01_BLCTRL,no_frame_yet?0:(LCD_brightness*LCD_brightness/1024)*LCD_max_brightness/1024);
+        }
+        
         first=0;
         cnt++;
         dma_hw->ints0 = 1u << GC9A01_dma_dat;//reset interrupt
@@ -276,6 +297,7 @@ void __not_in_flash_func(GC9A01_run)(){
 
         dma_channel_transfer_from_buffer_now(GC9A01_dma_ctrl, control_blocks, 1);
 
+		
         //swap buffers
         if(frame == frame1){
             frame = frame2;
@@ -303,8 +325,18 @@ void GC9A01_init(uint32_t *k_angle){
 
     control_blocks = control_blocks1;
     frame = frame1;
+    no_frame_yet = 1;
+    
+    gpio_set_function(GC9A01_BLCTRL, GPIO_FUNC_PWM);
+    uint slice_num = pwm_gpio_to_slice_num(GC9A01_BLCTRL);
+	pwm_config config = pwm_get_default_config();
+    pwm_config_set_clkdiv(&config, 1.f);
+	pwm_config_set_wrap(&config, GC9A01_MAX_BRIGHTNESS);
+    pwm_init(slice_num, &config, true);
+    pwm_set_gpio_level(GC9A01_BLCTRL,0);
 
     GC9A01_Initial();
+
     knob_angle = k_angle;
     
     PIO pio = GC9A01_PIO;
@@ -348,11 +380,4 @@ void GC9A01_init(uint32_t *k_angle){
                         0, // read address
                         0, // element count (each element is of size transfer_data_size)
                         false); // start
-
-    gpio_set_function(GC9A01_BLCTRL, GPIO_FUNC_PWM);
-    uint slice_num = pwm_gpio_to_slice_num(GC9A01_BLCTRL);
-	pwm_config config = pwm_get_default_config();
-    pwm_config_set_clkdiv(&config, 1.f);
-	pwm_config_set_wrap(&config, 1024);
-    pwm_init(slice_num, &config, true);
 }

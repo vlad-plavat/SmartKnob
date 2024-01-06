@@ -10,10 +10,14 @@
 #define GC9A01_CSN 21
 #define GC9A01_DAT 19//&20
 
+#define GC9A01_MAX_BRIGHTNESS 1024
+
 #define WIDTH 240
 #define HEIGHT 240
 
 #define GC9A01_PIO pio1
+
+extern int32_t LCD_brightness, LCD_max_brightness;
 
 void __not_in_flash_func(GC9A01_run)();
 uint16_t __not_in_flash_func(lengthOf)(const char *s);
