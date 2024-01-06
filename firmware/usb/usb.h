@@ -228,9 +228,10 @@ static void send_hid_report(uint8_t report_id)
     }
     if(usb_mode == USB_SMART){
       
-      uint8_t report[32]={1,2,3,44,56,6,7,8,9};
+      uint8_t report[64]={1,2,3,44,56,6,7,8,9};
+      report[63]=69;
 
-      tud_hid_report(REPORT_ID_GAMEPAD, &report, sizeof(report));
+      tud_hid_report(0, &report, sizeof(report));
       return;
     }
   }
@@ -291,7 +292,7 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
   (void) buffer;
   (void) reqlen;
 
-  return 0;
+  return 64;
 }
 
 // Invoked when received SET_REPORT control request or
@@ -304,8 +305,13 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
   (void) buffer;
   (void) bufsize;
 
+  char buf[100];
+  sprintf(buf,"%d: %d %d\n", bufsize, buffer[0], buffer[63]);
+  tud_cdc_n_write(0, buf, strlen(buf));
+  tud_cdc_write_flush();
+
   // echo back anything we received from host
-  tud_hid_report(0, buffer, bufsize);
+  //tud_hid_report(0, buffer, bufsize);
 }
 
 

@@ -115,7 +115,7 @@ uint8_t const desc_hid_report_mouse[] =
 };
 uint8_t const desc_hid_report_smartknob[] =
 {
-  TUD_HID_REPORT_DESC_GENERIC_INOUT   (64,  HID_REPORT_ID(REPORT_ID_GAMEPAD            )),
+  TUD_HID_REPORT_DESC_GENERIC_INOUT   (64),
 };
 
 // Invoked when received GET HID REPORT DESCRIPTOR

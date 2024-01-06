@@ -44,15 +44,15 @@ int main(){
     while(1){
         WS2812_refresh(knob_angle);
         service_usb();
-        char buf[100];
-
-        sprintf(buf,"%7ld %7ld %7ld\n", Xtilt, Ytilt, Press );
-        tud_cdc_n_write(0, buf, strlen(buf));
         
         check_boot_button();
         Motor_task();
         HX711_update();
-        if(millis==100){
+        if(millis==1000){
+            char buf[100];
+            sprintf(buf,"%7ld %7ld %7ld\n", Xtilt, Ytilt, Press );
+            tud_cdc_n_write(0, buf, strlen(buf));
+            tud_cdc_write_flush();
             millis=0;
         }
         sleep_ms(1);
