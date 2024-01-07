@@ -11,8 +11,9 @@ int32_t num_ovfl=0;
 float angle_full_rot, angle_full_rot_offset;
 float angle;
 
-int motor_dbg_a, motor_dbg_b, motor_dbg_c;
 float ph, ang_speed;
+int ang_speed_as_int;
+int constant_velocity=0;
 
 #define CLAMP_TO(X,L) ((X)>L?L:((X)<-L?-L:(X)))
 #define CLAMP_FRICTION(X) (CLAMP_TO(X,6))
@@ -31,16 +32,19 @@ enum Motor_endstop_modes{MOTOR_ENDSTOPS, MOTOR_NO_ENDSTOPS}motor_endstop_mode;
 float endstop_min=-22.5*13, endstop_max=22.5*21;
 enum Motor_detent_modes{MOTOR_CUSTOM_DETENTS, MOTOR_UNIFORM_DETENTS}motor_detent_mode; 
 float detent_positions[NUM_MAX_DETENTS];
-float angle_offset = 0;
+float angle_offset = 0, constant_velocity_force = 0;
 float power = 0;
 int vibration_time_left_us=0;
 
 float prev_angle = 0;
 void calculate_angles(){
     //compute current angle 0-360
-    angle = 360.0-(*rotor_angle)*360.0/1024/16;
-    if(angle<0)angle+=360;
-    angle = angle + ROTOR_CALIB_VALUE;
+    float tmp_angle = 360.0-(*rotor_angle)*360.0/1024/16;
+    if(tmp_angle<0)tmp_angle+=360;
+    tmp_angle = tmp_angle + ROTOR_CALIB_VALUE;
+    if(absf(tmp_angle-angle)>0.1){
+        angle = tmp_angle;
+    }
 
     //compute full rotation angle
     if(prev_angle>270 && angle<90) num_ovfl++;
@@ -57,27 +61,41 @@ void Motor_task(){
     
     calculate_angles();
     //compute angular speed
+    float deltaAngle = angle - prev_angle;
+    if(deltaAngle > 180) deltaAngle-=360;
+    if(deltaAngle <-180) deltaAngle+=360;
     ang_speed = 1000*(angle - prev_angle)/(cr_call_time - prev_call_time);
+    ang_speed_as_int = ang_speed*1000000;
     prev_angle = angle;
     prev_call_time = cr_call_time;
 
     //compute force that needs to be applied
     ph=0;
     int no_more_action = 0;
-    
-    if(motor_endstop_mode == MOTOR_ENDSTOPS){
-        if(angle_full_rot < endstop_min){
+    if(constant_velocity){
+        no_more_action = 1;
+        power = motor_power_max;
+        if(ang_speed < 2*180.0/1000){
+            constant_velocity_force++;
+        }else{
+            constant_velocity_force--;
+        }
+        if(constant_velocity_force > 18)constant_velocity_force = 18;
+        if(constant_velocity_force <-18)constant_velocity_force = -18;
+        ph = constant_velocity_force;
+    }else if(motor_endstop_mode == MOTOR_ENDSTOPS){
+        if(angle_full_rot_offset < endstop_min){
             power = motor_power_max;
             no_more_action = 1;
-            ph += CLAMP_TO((endstop_min-angle_full_rot)/5, 12);
+            ph += CLAMP_TO((endstop_min-angle_full_rot_offset)/5, 12);
             float frict_f = CLAMP_FRICTION(sgn(ang_speed)*(sqrt(absf(ang_speed))/(ang_speed*ang_speed-absf(ang_speed)+1))*20);
             frict_f /= 5;
             //float frict_f = CLAMP_FRICTION(ang_speed*50);
             ph -= frict_f;
-        }else if(angle_full_rot > endstop_max){
+        }else if(angle_full_rot_offset > endstop_max){
             power = motor_power_max;
             no_more_action = 1;
-            ph -= CLAMP_TO((angle_full_rot-endstop_max)/5, 12);
+            ph -= CLAMP_TO((angle_full_rot_offset-endstop_max)/5, 12);
             float frict_f = CLAMP_FRICTION(sgn(ang_speed)*(sqrt(absf(ang_speed))/(ang_speed*ang_speed-absf(ang_speed)+1))*20);
             //float frict_f = CLAMP_FRICTION(ang_speed*50);
             frict_f /= 5;
@@ -132,18 +150,6 @@ void Motor_task(){
     pwm_set_both_levels(ph_b,(sin((ph+120/5)*DEG2RAD*5)+1.001)*power,0);
     pwm_set_both_levels(ph_c,(sin((ph+240/5)*DEG2RAD*5)+1.001)*power,0);
     ph -= angle;
-    //ph = angle - CLAMP_FORCE(ang_speed*20);
-    // motor_dbg_a = (sin(ph        *DEG2RAD*5)+1.001)*199;
-    // motor_dbg_b = (sin((ph+120/5)*DEG2RAD*5)+1.001)*199;
-    // motor_dbg_c = (sin((ph+240/5)*DEG2RAD*5)+1.001)*199;
-
-    // pwm_set_both_levels(ph_a,(sin(ph        *DEG2RAD*5)+1.001)*199,0);
-    // pwm_set_both_levels(ph_b,(sin((ph+120/5)*DEG2RAD*5)+1.001)*199,0);
-    // pwm_set_both_levels(ph_c,(sin((ph+240/5)*DEG2RAD*5)+1.001)*199,0);
-    
-    // pwm_set_both_levels(ph_a,750,0);
-    // pwm_set_both_levels(ph_b,0,0);
-    // pwm_set_both_levels(ph_c,750,0);
 }
 
 void Motor_set_mode_detents(int detents, int32_t offset){
@@ -154,6 +160,17 @@ void Motor_set_mode_detents(int detents, int32_t offset){
     
     angle_offset = 360.0-offset*360.0/1024/16 + ROTOR_CALIB_VALUE;
     calculate_angles();
+    constant_velocity = 0;
+}
+
+void Motor_add_endstops_to_mode(float emin, float emax){
+    endstop_min = emin;
+    endstop_max = emax;
+    motor_endstop_mode = MOTOR_ENDSTOPS;
+}
+
+void Motor_set_mode_constant_velocity(){
+    constant_velocity = 1;
 }
 
 void Motor_init(uint32_t *anglevar) {

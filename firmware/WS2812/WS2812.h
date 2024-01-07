@@ -10,6 +10,7 @@
 extern int32_t LED_max_brightness;
 
 void WS2812_init();
-void WS2812_refresh();
+void WS2812_refresh(uint r);
+void WS2812_set_ring_array(void *arr, bool rotating);
 
 #endif

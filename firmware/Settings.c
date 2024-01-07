@@ -23,7 +23,7 @@ void read_settings(){
     for(int i=0; i<256; i++){
         settings.filler[i] = flash_target_contents[i];
     }
-    settings.mode = SMART_MODE;//////!!!!DELETE
+    
     if(settings.LCD_max_brightness == 0) settings.LCD_max_brightness = 1;
     LCD_max_brightness = settings.LCD_max_brightness;
     if(settings.LED_max_brightness == 0) settings.LED_max_brightness = 1;
@@ -243,6 +243,7 @@ void settings_menu(){
                 init_value = *value_to_edit;
                 knob_offset = knob_angle;
                 Motor_set_mode_detents(20, knob_offset);
+                Motor_add_endstops_to_mode(-init_value, max_value-init_value);
                 knob_offset = 360.0-knob_offset*360.0/1024/16;
             }
 

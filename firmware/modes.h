@@ -18,7 +18,7 @@ void init_as_mouse(){
     
     usb_mode = USB_MOUSE;
 
-    Motor_set_mode_detents(20, 0);
+    Motor_set_mode_detents(20, 512);
 }
 
 void init_as_joystick(){
@@ -55,6 +55,7 @@ void init_as_smartknob(){
     multicore_fifo_push_blocking(SUBMIT_LIST);
     
     usb_mode = USB_SMART;
+    Motor_set_mode_detents(0, 0);
 }
 
 #endif

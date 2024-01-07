@@ -220,7 +220,7 @@ static __force_inline void render(){
 
 
 
-void fifo_rcv_interrupt() {
+void __not_in_flash_func(fifo_rcv_interrupt)() {
     // Just record the latest entry
     while (multicore_fifo_rvalid()){
         uint32_t data = multicore_fifo_pop_blocking();
@@ -266,7 +266,7 @@ void __not_in_flash_func(GC9A01_run)(){
     irq_set_exclusive_handler(SIO_IRQ_PROC1, fifo_rcv_interrupt);
     irq_set_enabled(SIO_IRQ_PROC1, true);
     while(1){
-
+        if(multicore_fifo_rvalid()) fifo_rcv_interrupt();//prevent locks
         render();
 
         //wait

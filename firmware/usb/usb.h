@@ -10,6 +10,22 @@ enum  {
 
 static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
 
+typedef struct TU_ATTR_PACKED
+{
+  union{
+    struct{
+      int32_t  Xtilt, Ytilt, Press;
+      uint32_t angle;
+      int32_t speed;
+    };
+    uint8_t filler[64];
+  };
+} hid_smartknob_report_t;
+
+
+void (*usb_packetCallback)(uint8_t*, uint8_t) = NULL;
+void (*usb_fill_descriptor_callback)(hid_smartknob_report_t *rep) = NULL;
+
 void led_blinking_task(void);
 void cdc_task(void);
 void hid_task(void);
@@ -119,23 +135,6 @@ void tud_cdc_rx_cb(uint8_t itf)
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 int abs(int x){
   return x<0?-x:x;
 }
@@ -143,6 +142,7 @@ int abs(int x){
 //--------------------------------------------------------------------+
 // USB HID
 //--------------------------------------------------------------------+
+
 
 static void send_hid_report(uint8_t report_id)
 {
@@ -209,7 +209,7 @@ static void send_hid_report(uint8_t report_id)
       if ( Yval < -128) Yval=-128;
 
       static float prev_knob_angle;
-      float cr_angle = 360.0-knob_angle*360.0/1024/16;
+      float cr_angle = 360.01-knob_angle*360.0/1024/16;
       float delta = cr_angle - prev_knob_angle;
       if(delta > 180){delta-=360;}if(delta < -180){delta+=360;}
       int32_t rx = delta/18;if(rx>127){rx=127;}if(rx<-127){rx=-127;}
@@ -228,8 +228,10 @@ static void send_hid_report(uint8_t report_id)
     }
     if(usb_mode == USB_SMART){
       
-      uint8_t report[64]={1,2,3,44,56,6,7,8,9};
-      report[63]=69;
+      hid_smartknob_report_t report;
+
+      if(usb_fill_descriptor_callback != NULL)
+        usb_fill_descriptor_callback(&report);
 
       tud_hid_report(0, &report, sizeof(report));
       return;
@@ -305,11 +307,8 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
   (void) buffer;
   (void) bufsize;
 
-  char buf[100];
-  sprintf(buf,"%d: %d %d\n", bufsize, buffer[0], buffer[63]);
-  tud_cdc_n_write(0, buf, strlen(buf));
-  tud_cdc_write_flush();
-
+  if(usb_packetCallback != NULL)
+    usb_packetCallback((uint8_t*)buffer, bufsize);
   // echo back anything we received from host
   //tud_hid_report(0, buffer, bufsize);
 }
