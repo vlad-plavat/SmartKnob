@@ -33,10 +33,15 @@ public class Test_example_1 : MonoBehaviour
     static HidReport reportIn = null;
     static Queue<HidReport> writeQueue = new Queue<HidReport>();
 
-    GameObject vinyl;
+    GameObject vinyl, gkick, gsnare, ghihat, gclap;
     void Start(){
         //Debug.Log(HidDevices.Enumerate().Count<HidDevice>());
         vinyl = GameObject.Find("Vinyl");
+        gkick = GameObject.Find("Kick");
+        gsnare = GameObject.Find("Snare");
+        ghihat = GameObject.Find("Hihat");
+        gclap = GameObject.Find("Clap");
+        
         foreach(HidDevice d in HidDevices.Enumerate()){
             //Debug.Log(d);
             if(d.Attributes.VendorId == 0xCAFE && d.Attributes.ProductId == 0x4005){
@@ -77,6 +82,7 @@ public class Test_example_1 : MonoBehaviour
         smartKnob.WriteReport(rep, OnReportW);
         //HidDeviceData data = smartKnob.Read(10);
         //Debug.Log(data);
+        StartBeating();
 
     }
 
@@ -122,10 +128,12 @@ public class Test_example_1 : MonoBehaviour
         return s/smoother.Count();
     }
 
-    int CheckBeat(int var, int dir, int prev, AudioClip clip){
+    int CheckBeat(int var, int dir, int prev, AudioClip clip, GameObject g){
         if(var*dir>1500 && prev == 0){
             prev = 1;
             beatsAudioSource.PlayOneShot(clip);
+            if(beatsAudioSource.mute == false)
+                g.GetComponent<Presser>().Press();
         }else if(var*dir<750 && prev == 1){
             prev = 0;
         }
@@ -138,11 +146,34 @@ public class Test_example_1 : MonoBehaviour
         crTime = Time.timeSinceLevelLoad;
         if(crTime - prevLEDservice > 0.03){
             prevLEDservice = crTime;
-            Color32[] color_arr = new Color32[16];
-            for(int i=0;i<16;i++)
-                color_arr[i] = new Color32(0,255,0,0);
-            HidReport rep = Message.MessageLED(color_arr, false);
-            SendReport(rep);
+            if(beatsAudioSource.mute == false){
+                Color32[] color_arr = new Color32[16];
+                for(int i=7;i<=9;i++){
+                    byte level = (byte)(gkick.GetComponent<Presser>().getGrad()*255.0f);
+                    color_arr[i] = new Color32(level,level,0,0);
+                }
+                for(int i=11;i<=13;i++){
+                    byte level = (byte)(gsnare.GetComponent<Presser>().getGrad()*255.0f);
+                    color_arr[i] = new Color32(level,level,0,0);
+                }
+                for(int i=3;i<=5;i++){
+                    byte level = (byte)(ghihat.GetComponent<Presser>().getGrad()*255.0f);
+                    color_arr[i] = new Color32(level,level,0,0);
+                }
+                
+                byte level2 = (byte)(gclap.GetComponent<Presser>().getGrad()*255.0f);
+                color_arr[0] = color_arr[1] = color_arr[15] = new Color32(level2,level2,0,0);
+                
+                HidReport rep = Message.MessageLED(color_arr, false);
+                SendReport(rep);
+            }
+            if(flangeAudioSource.mute == false){
+                Color32[] color_arr = new Color32[16];
+                for(int i=0;i<16;i++)
+                    color_arr[i] = new Color32(255,0,255,0);
+                HidReport rep = Message.MessageLED(color_arr, false);
+                SendReport(rep);
+            }
 
             List<HidReport> reports = Message.MessageLCD(new Color32(255,0,0,0));
             foreach(HidReport hidReport in reports){
@@ -163,10 +194,10 @@ public class Test_example_1 : MonoBehaviour
         Array.Copy(reportIn.Data, 16, intarray, 0, 4);
         Int32 Speed = BitConverter.ToInt32(intarray, 0);
         obj.transform.rotation = Quaternion.Euler(new Vector3(Ytilt/100,0,Xtilt/100));
-        prevKick = CheckBeat(Ytilt,1,prevKick,kick);
-        prevClap = CheckBeat(Ytilt,-1,prevClap,clap);
-        prevHat  = CheckBeat(Xtilt,1,prevHat,hihat);
-        prevSnare  = CheckBeat(Xtilt,-1,prevSnare,snare);
+        prevKick = CheckBeat(Ytilt,1,prevKick,kick,gkick);
+        prevClap = CheckBeat(Ytilt,-1,prevClap,clap,gclap);
+        prevHat  = CheckBeat(Xtilt,1,prevHat,hihat,ghihat);
+        prevSnare  = CheckBeat(Xtilt,-1,prevSnare,snare,gsnare);
         float angle = 360f-Rotation*360f/1024/16;
         vinyl.transform.rotation = Quaternion.Euler(new Vector3(0,0,-angle));
         audioMixer.SetFloat("lowpass", (Mathf.Sin(angle*Mathf.Deg2Rad)+1)*1000+100);
@@ -210,6 +241,13 @@ public class Test_example_1 : MonoBehaviour
     }
     public void StartScratching(){
         HidReport rep = Message.MessageMOT(true, Message.MOTOR_VEL);
+        SendReport(rep);
+        Color32[] color_arr = new Color32[16];
+        for(int i=0;i<16;i++){
+            byte intensity = (byte)(i*16);
+            color_arr[i] = new Color32(intensity,intensity,intensity,0);
+        }
+        rep = Message.MessageLED(color_arr, true);
         SendReport(rep);
         scratchAudioSource.mute = false;
         flangeAudioSource.mute = true;
