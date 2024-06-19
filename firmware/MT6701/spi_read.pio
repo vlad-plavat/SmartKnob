@@ -7,7 +7,7 @@
 ;in case we want all 24 bits to check CRC
 
 .wrap_target
-    set pins, 0        side 1
+    set pins, 0 [2]    side 1
     mov x, y           side 0
     nop                side 1
 bitloop:

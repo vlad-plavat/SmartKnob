@@ -143,7 +143,6 @@ int abs(int x){
 // USB HID
 //--------------------------------------------------------------------+
 
-
 static void send_hid_report(uint8_t report_id)
 {
   // skip if hid is not ready yet
@@ -215,6 +214,8 @@ static void send_hid_report(uint8_t report_id)
       int32_t rx = delta/18;if(rx>127){rx=127;}if(rx<-127){rx=-127;}
       if(rx){
         prev_knob_angle = prev_knob_angle + rx*18;
+        if(prev_knob_angle > 360){prev_knob_angle-=360;}
+        if(prev_knob_angle < 0){prev_knob_angle+=360;}
       }
 
       hid_mouse_report_t report =

@@ -1,9 +1,13 @@
 .program ws2812
 .side_set 1
-
+/*
 .define public T0H 2
 .define public DELTA 5
 .define public T1L 3
+*/
+.define public T0H 7
+.define public DELTA 5
+.define public T1L 11
 
 .wrap_target
 bitloop:

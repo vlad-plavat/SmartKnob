@@ -55,9 +55,9 @@ int main(){
         HX711_update();
         if(millis==10){
             char buf[100];
-            sprintf(buf,"%7ld %7ld %7ld %7f\n", Xtilt, Ytilt, Press, angle_full_rot_offset);
-            //tud_cdc_n_write(0, buf, strlen(buf));
-            //tud_cdc_write_flush();
+            sprintf(buf,"%7ld %7ld %7f %7f\n", Xtilt*0, Ytilt*0, Press*0+ang_speed*10000, power*10);
+            tud_cdc_n_write(0, buf, strlen(buf));
+            tud_cdc_write_flush();
             millis=0;
         }
         sleep_ms(1);
@@ -85,7 +85,7 @@ void handleUsbPacket(uint8_t *buffer, uint8_t buflen){
         if(buffer[2] == MOTOR_VEL){
             Motor_set_mode_constant_velocity();
         }else if(buffer[2] == MOTOR_OFF){
-            Motor_set_mode_detents(0, 0);
+            Motor_set_mode_detents(0);
         }
         return;
     }

@@ -70,7 +70,7 @@ void settings_menu(){
     enum Images mode_images[3]={JOYSTICK_IMG,MOUSE_IMG,SMART_KNOB_IMG};
 
     float knob_offset = knob_angle;
-    Motor_set_mode_detents(6, knob_offset);
+    Motor_set_mode_detents(6);
     knob_offset = 360.0-knob_offset*360.0/1024/16;
     uint8_t pressed=0, prev_pressed=0;
     uint32_t press_debounce_time = 0, prev_press_debounce_time = 0;
@@ -101,7 +101,7 @@ void settings_menu(){
         if(in_menu == 0){
             if(in_menu != prev_menu){
                 knob_offset = knob_angle;
-                Motor_set_mode_detents(6, knob_offset);
+                Motor_set_mode_detents(6);
                 knob_offset = 360.0-knob_offset*360.0/1024/16;
             }
             multicore_fifo_push_blocking(START_EDIT);
@@ -167,7 +167,7 @@ void settings_menu(){
         }else if(in_menu == MENU_MODE){
             if(in_menu != prev_menu){
                 knob_offset = knob_angle;
-                Motor_set_mode_detents(3, knob_offset);
+                Motor_set_mode_detents(3);
                 knob_offset = 360.0-knob_offset*360.0/1024/16;
             }
 
@@ -242,7 +242,7 @@ void settings_menu(){
             if(in_menu != prev_menu){
                 init_value = *value_to_edit;
                 knob_offset = knob_angle;
-                Motor_set_mode_detents(20, knob_offset);
+                Motor_set_mode_detents(20);
                 Motor_add_endstops_to_mode(-init_value, max_value-init_value);
                 knob_offset = 360.0-knob_offset*360.0/1024/16;
             }
