@@ -1,0 +1,33 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>hidlibrary</id>
+    <version>3.3.40</version>
+    <title>Hid Library</title>
+    <authors>Mike O'Brien</authors>
+    <owners>Mike O'Brien</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <licenseUrl>https://github.com/mikeobrien/HidLibrary/blob/master/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/mikeobrien/HidLibrary</projectUrl>
+    <iconUrl>https://github.com/mikeobrien/HidLibrary/raw/master/misc/logo.png</iconUrl>
+    <description>This library enables you to enumerate and communicate with Hid compatible USB devices in .NET.</description>
+    <summary>This library enables you to enumerate and communicate with Hid compatible USB devices in .NET.</summary>
+    <releaseNotes></releaseNotes>
+    <copyright></copyright>
+    <language>en-US</language>
+    <tags>usb hid</tags>
+    <dependencies>
+      <group targetFramework=".NETFramework2.0">
+        <dependency id="Theraot.Core" version="1.0.3" />
+      </group>
+      <group targetFramework=".NETFramework3.5">
+        <dependency id="Theraot.Core" version="1.0.3" />
+      </group>
+      <group targetFramework=".NETFramework4.0">
+        <dependency id="Theraot.Core" version="1.0.3" />
+      </group>
+      <group targetFramework=".NETFramework4.5" />
+      <group targetFramework=".NETStandard2.0" />
+    </dependencies>
+  </metadata>
+</package>

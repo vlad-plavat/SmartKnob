@@ -2,6 +2,7 @@
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
 #include <pico/bootrom.h>
+#include <math.h>
 
 
 #include "HX711.h"
@@ -55,7 +56,7 @@ int main(){
         HX711_update();
         if(millis==10){
             char buf[100];
-            sprintf(buf,"%7ld %7ld %7f %7f\n", Xtilt*0, Ytilt*0, Press*0+ang_speed*10000, power*10);
+            sprintf(buf,"%7ld %7ld %7ld %7d\n", (Xdma<<8)>>18, (Ydma<<8)>>18, (Pdma<<8)>>18, num_ovfl);
             tud_cdc_n_write(0, buf, strlen(buf));
             tud_cdc_write_flush();
             millis=0;
@@ -72,6 +73,9 @@ int main(){
 #define MESSAGE_MOT 3
 #define MOTOR_OFF 2
 #define MOTOR_VEL 1
+#define MOTOR_FRIC 3
+#define MOTOR_UNIFORM 4
+#define MOTOR_CUSTOM 5
 void handleUsbPacket(uint8_t *buffer, uint8_t buflen){
     if(buflen != 64) return;
     if(buffer[0] == MESSAGE_NOP) return;
@@ -86,11 +90,30 @@ void handleUsbPacket(uint8_t *buffer, uint8_t buflen){
             Motor_set_mode_constant_velocity();
         }else if(buffer[2] == MOTOR_OFF){
             Motor_set_mode_detents(0);
+        }else if(buffer[2] == MOTOR_FRIC){
+            Motor_set_mode_friction(buffer[3]);
+        }else if(buffer[2] == MOTOR_UNIFORM){
+            float offset = *((float*)(&buffer[4]));
+            Motor_set_mode_detents_offset(buffer[3], offset);
+            float emin=*((float*)(&buffer[8])), emax=*((float*)(&buffer[12]));
+            if(!isnan(emin) && !isnan(emax) && !isinf(emin) && !isinf(emax))
+                Motor_add_endstops_to_mode(emin, emax);
+        }else if(buffer[2] == MOTOR_CUSTOM){
+            float offset = *((float*)(&buffer[4]));
+            //max 14 floats remain; array begins at buffer[8]
+            float *detents_array = (float*)(&buffer[8]);
+            if(buffer[3]>14) buffer[3] = 14;
+            Motor_set_mode_custom_detents_offset(buffer[3], detents_array, offset);
         }
         return;
     }
     if(buffer[0] == MESSAGE_LCD){
-        
+        for(int i=0; i<buffer[1]; i++){
+            multicore_fifo_push_blocking(*((uint32_t*)&(buffer[(i+1)*4])));
+        }
+       
+        while(multicore_fifo_rvalid())
+            multicore_fifo_pop_blocking();
         return;
     }
 }

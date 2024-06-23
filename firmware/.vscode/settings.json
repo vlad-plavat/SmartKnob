@@ -32,6 +32,12 @@
         "limits": "c",
         "new": "c",
         "commands.h": "c",
-        "multicore.h": "c"
+        "multicore.h": "c",
+        "array": "c",
+        "string_view": "c",
+        "initializer_list": "c",
+        "ranges": "c",
+        "utility": "c",
+        "string": "c"
     }
 }

@@ -40,7 +40,7 @@ void WS2812_refresh(uint r){
 
 
         uint32_t col = (ring[ (i+r*16/(1024*16)) % NUM_PIXELS]);
-        uint8_t b = col&0xFF, r=(col>>8)&0xFF, g=(col>>16)&0xFF;
+        uint8_t b = col&0xFF, r=(col>>16)&0xFF, g=(col>>8)&0xFF;
         b = (int32_t)b*LED_max_brightness/WS2812_MAX_LED_BRIGHTNESS;
         r = (int32_t)r*LED_max_brightness/WS2812_MAX_LED_BRIGHTNESS;
         g = (int32_t)g*LED_max_brightness/WS2812_MAX_LED_BRIGHTNESS;

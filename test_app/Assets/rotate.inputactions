@@ -1,0 +1,33 @@
+{
+    "name": "rotate",
+    "maps": [
+        {
+            "name": "New action map",
+            "id": "084f75f4-4418-4ec3-b57e-67abf5d00346",
+            "actions": [
+                {
+                    "name": "New action",
+                    "type": "Value",
+                    "id": "0cfa1dbe-4926-48a1-a3ea-33e2bce8bf4c",
+                    "expectedControlType": "Analog",
+                    "processors": "",
+                    "interactions": ""
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "4dfbcde8-3a8a-4ce4-a6bd-c9cf014eb869",
+                    "path": "<HID::ptudorr & vlad-plavat Smart Knob>/wheel",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "New action",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}

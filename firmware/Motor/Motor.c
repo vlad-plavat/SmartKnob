@@ -43,9 +43,9 @@ void calculate_angles(){
     float tmp_angle = 360.0-(*rotor_angle)*360.0/1024/16;
     if(tmp_angle<0)tmp_angle+=360;
     tmp_angle = tmp_angle + ROTOR_CALIB_VALUE;
-    if(absf(tmp_angle-angle)>0.1){
+    //if(absf(tmp_angle-angle)>0.1){
         angle = tmp_angle;
-    }
+    //}
 
     //compute full rotation angle
     if(prev_angle>270 && angle<90) num_ovfl++;
@@ -148,7 +148,33 @@ void Motor_task(){
                 anglim += 360.0/num_detents;
             }
         }else if(motor_detent_mode == MOTOR_CUSTOM_DETENTS){
+            power = motor_power_max;
+            uint8_t target = 0xFF;
+            float det_from_target = 180;
+            if(angle_full_rot_offset <= detent_positions[0]){
+                target=0;
+            }
+            for(uint8_t i=1; i<num_detents; i++){
+                if(angle_full_rot_offset < detent_positions[i]){
+                    //between d[i] and d[i-1]
+                    float med = (detent_positions[i] + detent_positions[i-1])/2;
+                    if(angle_full_rot_offset<=med) target = i-1;
+                    else target = i;
+                    det_from_target = detent_positions[i] - med;
+                    break;
+                }
+            }
+            if(target == 0xFF) target = num_detents-1;
 
+            float dif = angle_full_rot_offset - detent_positions[target];
+            float detent_f = CLAMP_TO(dif*100/det_from_target,12);
+            ph -= detent_f;
+            float frict_f = CLAMP_FRICTION(sgn(ang_speed)*(sqrt(absf(ang_speed))/(ang_speed*ang_speed-absf(ang_speed)+1))*20);
+            //float frict_f = CLAMP_FRICTION(ang_speed*50);
+            if(absf(ang_speed)<0.015*(det_from_target/180)) frict_f/=(40.0*180/det_from_target);
+            ph -= frict_f;
+
+            
         }
     }
 
@@ -175,19 +201,39 @@ void Motor_task(){
     ph -= angle;
 }
 
-void Motor_set_mode_detents_offset(int detents, int32_t offset){
+void Motor_set_mode_detents_offset(int detents, float offset){
     num_detents = detents;
     motor_detent_mode = MOTOR_UNIFORM_DETENTS;
     motor_endstop_mode = MOTOR_NO_ENDSTOPS;
     num_ovfl = 0;
     
-    angle_offset = 360.0-offset*360.0/1024/16 + ROTOR_CALIB_VALUE;
+    angle_offset = 360.0-(*rotor_angle)*360.0/1024/16 + ROTOR_CALIB_VALUE;
+    angle_offset -= offset;
     calculate_angles();
     motor_general_mode = MOTOR_NORMAL;
 }
 
 void Motor_set_mode_detents(int detents){
-    Motor_set_mode_detents_offset(detents, *rotor_angle);
+    Motor_set_mode_detents_offset(detents, 0);
+}
+
+void Motor_set_mode_custom_detents_offset(uint8_t nDetents, float *detents, float offset){
+    num_detents = nDetents;
+    for(uint8_t i=0; i<nDetents && i<NUM_MAX_DETENTS; i++){
+        detent_positions[i] = detents[i];
+    }
+    motor_detent_mode = MOTOR_CUSTOM_DETENTS;
+    motor_endstop_mode = MOTOR_NO_ENDSTOPS;
+    num_ovfl = 0;
+    
+    angle_offset = 360.0-(*rotor_angle)*360.0/1024/16 + ROTOR_CALIB_VALUE;
+    angle_offset -= offset;
+    calculate_angles();
+    motor_general_mode = MOTOR_NORMAL;  
+}
+
+void Motor_set_mode_custom_detents(int nDetents, float *detents){
+    Motor_set_mode_custom_detents_offset(nDetents, detents, 0);
 }
 
 void Motor_add_endstops_to_mode(float emin, float emax){
@@ -232,7 +278,7 @@ void Motor_init(uint32_t *anglevar) {
 
     //Motor_set_mode_detents(8,0);
     Motor_set_mode_detents_offset(0,0);
-
+    prev_angle = 360.0-(*rotor_angle)*360.0/1024/16;
 }
 
 void Motor_vibrate(){

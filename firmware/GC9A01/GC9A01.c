@@ -270,16 +270,19 @@ void __not_in_flash_func(GC9A01_run)(){
         render();
 
         //wait
-        static int first=1;
+        static int first=1, first_since_frame=2;
         #define DMA_DONE (dma_hw->intr & (1u << GC9A01_dma_dat))
         while(!first && !DMA_DONE){
             //continue;
         }
         if(!first){
-            pwm_set_gpio_level(GC9A01_BLCTRL,no_frame_yet?0:(LCD_brightness*LCD_brightness/1024)*LCD_max_brightness/1024);
+            pwm_set_gpio_level(GC9A01_BLCTRL,first_since_frame?0:(LCD_brightness*LCD_brightness/1024)*LCD_max_brightness/1024);
         }
         
         first=0;
+        if(!no_frame_yet)
+            first_since_frame --;
+        if(first_since_frame<0)first_since_frame=0;
         cnt++;
         dma_hw->ints0 = 1u << GC9A01_dma_dat;//reset interrupt
         
@@ -327,13 +330,13 @@ void GC9A01_init(uint32_t *k_angle){
     frame = frame1;
     no_frame_yet = 1;
     
-    gpio_set_function(GC9A01_BLCTRL, GPIO_FUNC_PWM);
     uint slice_num = pwm_gpio_to_slice_num(GC9A01_BLCTRL);
 	pwm_config config = pwm_get_default_config();
     pwm_config_set_clkdiv(&config, 1.f);
 	pwm_config_set_wrap(&config, GC9A01_MAX_BRIGHTNESS);
     pwm_init(slice_num, &config, true);
     pwm_set_gpio_level(GC9A01_BLCTRL,0);
+    gpio_set_function(GC9A01_BLCTRL, GPIO_FUNC_PWM);
 
     GC9A01_Initial();
 
