@@ -18,14 +18,21 @@ void HX711_update(){
     if(Pm&0x00800000) Pm |= 0xff000000;
 
     Xm/=1024;Ym/=1024;Pm/=1024;
-    Xm -= 833;
+    Xm -= 803;
     Ym -= 2145;
     Pm -= -627;
-     
-    Xtilt = Xm*0.741 +Ym*0.806 +Pm*0.691;
-    Ytilt = Xm*-0.874+Ym*-3.878+Pm*-2.052;
-    Press = Xm*-1.212+Ym*4.526 +Pm*6.427;
+    
+    // Xtilt = Xm*0.741 +Ym*0.806 +Pm*0.691;
+    // Ytilt = Xm*-0.874+Ym*-3.878+Pm*-2.052;
+    // Press = Xm*-1.212+Ym*4.526 +Pm*6.427;
+    
+    Ytilt = Xm*0.092 +Ym*-0.95 +Pm*1.21;
+    Xtilt = -(Xm*-0.744+Ym*-0.065+Pm*-0.806);
+    Press = Xm*-0.796+Ym*0.68 +Pm*2.66;
     Press *= 2;
+    /*Xtilt=Xm;
+    Ytilt=Ym;
+    Press=Pm;*/
 }
 
 void initOneHX711(uint dat, uint SCK){

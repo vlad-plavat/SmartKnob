@@ -37,8 +37,6 @@ void init_as_joystick(){
 
     usb_mode = USB_JOYSTICK;
     Motor_set_mode_detents(0);
-    float dets[5]={-90,-45,0,20,130};
-    Motor_set_mode_custom_detents_offset(5,dets,-45);
 }
 
 

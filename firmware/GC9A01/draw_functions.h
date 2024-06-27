@@ -37,10 +37,10 @@ void __not_in_flash_func(drawRectGradientV)(int16_t x, int16_t y, uint8_t h, uin
     uint8_t red1 = color1>>11, red2 = color2>>11;
     uint8_t grn1 = (color1>>5)&0x3f, grn2 = (color2>>5)&0x3f;
     uint8_t blu1 = color1&0x1f, blu2 = color2&0x1f;
-    for(int i=0; i<w; i++){
-        uint8_t r = red1 + (red2-red1)*(i)/w;
-        uint8_t g = grn1 + (grn2-grn1)*(i)/w;
-        uint8_t b = blu1 + (blu2-blu1)*(i)/w;
+    for(int i=0; i<h; i++){
+        uint8_t r = red1 + (red2-red1)*(i)/h;
+        uint8_t g = grn1 + (grn2-grn1)*(i)/h;
+        uint8_t b = blu1 + (blu2-blu1)*(i)/h;
         lineBuffer[i]= (r<<11) | (g<<5) | b;
     }
     h--;w--;//function calculates inclusive limits
@@ -248,6 +248,13 @@ void __not_in_flash_func(drawRotatedScaledImage)(int32_t x, int32_t y, int32_t h
 }
 
 static __force_inline void drawRotatedImage(int32_t x, int32_t y, int32_t h, int32_t w, int32_t angle, void *image){
+    double anglef = angle/(64.0*1024);
+    anglef+=45;
+    int32_t sinof = sin(anglef*DEG2RAD)*(64.0*1024);
+    int32_t cosof = cos(anglef*DEG2RAD)*(64.0*1024);
+    int32_t hyp = sqrt(w*w/4 + h*h/4);
+    x -= (cosof*hyp)>>16;
+    y -= (sinof*hyp)>>16;
     drawRotatedImageOrLine(x, y, h, w, angle, image, 0);
 }
 

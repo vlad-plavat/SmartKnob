@@ -38,6 +38,9 @@
         "initializer_list": "c",
         "ranges": "c",
         "utility": "c",
-        "string": "c"
+        "string": "c",
+        "vinyl_img.h": "c",
+        "kick_img.h": "c",
+        "snare_img.h": "c"
     }
 }

@@ -73,6 +73,11 @@ float dbgfloat(){
 #include "images/start_app_img.h"
 #include "images/power_img.h"
 #include "images/font16.h"
+#include "images/vinyl_img.h"
+#include "images/kick_img.h"
+#include "images/snare_img.h"
+#include "images/hihat_img.h"
+#include "images/clap_img.h"
 
 predefined_image predefined_image_array[NUM_PREDEFINED_IMAGES]={
 {.image=smartknob_image_data, .h=smartknob_image_height, .w=smartknob_image_width},
@@ -83,6 +88,12 @@ predefined_image predefined_image_array[NUM_PREDEFINED_IMAGES]={
 {.image=power_img_data      , .h=power_img_height,       .w=power_img_width},
 {.image=mouse_img_data      , .h=mouse_img_height,       .w=mouse_img_width},
 {.image=joystick_img_data   , .h=joystick_img_height,    .w=joystick_img_width},
+{.image=vinyl_img_data     , .h=vinyl_img_height,       .w=vinyl_img_width},
+{.image=kick_img_data      , .h=kick_img_height,        .w=kick_img_width},
+{.image=snare_img_data     , .h=snare_img_height,       .w=snare_img_width},
+{.image=hihat_img_data     , .h=hihat_img_height,       .w=hihat_img_width},
+{.image=clap_img_data      , .h=clap_img_height,        .w=clap_img_width},
+{.image=cursor_image_data  , .h=cursor_image_height,    .w=cursor_image_width},
 };
 
 #include "draw_functions.h"
@@ -90,40 +101,45 @@ predefined_image predefined_image_array[NUM_PREDEFINED_IMAGES]={
 int32_t LCD_brightness=1024, LCD_max_brightness=0, no_frame_yet=1;
 
 #define NR_MAX_INSTRUCTIONS 20
-typedef struct instruction{
+typedef struct instruction_t{
     uint8_t instr;
-    uint16_t x,y;
-    uint32_t arg3,arg4,arg5,arg6,arg7,arg8;
-}instruction;
-int nr_instr1 = 0, nr_instr2 = 0;
-int *nr_instr = &nr_instr1;
-instruction instr1[NR_MAX_INSTRUCTIONS],instr2[NR_MAX_INSTRUCTIONS];
-instruction *instruction_list = instr1;
+    union{
+        struct{
+            uint32_t x,y;
+            uint32_t arg3,arg4,arg5,arg6,arg7,arg8;
+        };
+        uint32_t params[8];
+    };
+    
+}instruction_t;
 
 #define NR_STRINGS 8
 #define MAX_STRING_LENGTH 256
-char strings1[NR_STRINGS][MAX_STRING_LENGTH], strings2[NR_STRINGS][MAX_STRING_LENGTH];
-char (*strings)[MAX_STRING_LENGTH] = strings1;
-volatile uint8_t swap_lists = 0;
+
+typedef struct render_data_t{
+    int nr_instr;
+    instruction_t instr_list[NR_MAX_INSTRUCTIONS];
+    char strings[NR_STRINGS][MAX_STRING_LENGTH];
+}render_data_t;
+
+render_data_t render_data_array[3]={{.nr_instr=0},{.nr_instr=0},{.nr_instr=0}};
+
+volatile int render_data_read_idx = 0;//where we render from
+volatile int render_data_write_idx = 0;//we write at this + 1
+
 
 static __force_inline void render(){
         unsigned long render_start_time = time_us_32();
-        cnt2 = *nr_instr;
 
-        irq_set_enabled(SIO_IRQ_PROC1, false);   
-        if(swap_lists){
+        //cnt2 = render_data_array[render_data_read_idx].nr_instr;
+
+        irq_set_enabled(SIO_IRQ_PROC1, false);
+        if(render_data_write_idx != render_data_read_idx){
             no_frame_yet = 0;
-            swap_lists = 0;
+            //in case both buffers are done
+            render_data_read_idx++;
+            if(render_data_read_idx >= 3) render_data_read_idx -= 3;
             multicore_fifo_push_blocking(FRAME_SWAPPED);
-            if(instruction_list == instr1){
-                instruction_list = instr2;
-                nr_instr = &nr_instr2;
-                strings = strings2;
-            }else{
-                instruction_list = instr1;
-                nr_instr = &nr_instr1;
-                strings = strings1;
-            }
         }
         irq_set_enabled(SIO_IRQ_PROC1, true);
 
@@ -133,8 +149,10 @@ static __force_inline void render(){
         }else{
             drawRectangle(64,64,128,128, 0xa0a0);
         }*/
-        for(int i=0; i<(*nr_instr); i++){
-            instruction ins = instruction_list[i];
+        render_data_t *render_data_current = &render_data_array[render_data_read_idx];
+
+        for(int i=0; i<render_data_current->nr_instr; i++){
+            instruction_t ins = render_data_current->instr_list[i];
             if(ins.instr == DRAW_RECTANGLE){
                 drawRectangle(ins.x,ins.y,
                                 ins.arg3,ins.arg4,
@@ -156,8 +174,8 @@ static __force_inline void render(){
                 predefined_image_array[ins.arg3].h, predefined_image_array[ins.arg3].w,
                 ins.arg4,predefined_image_array[ins.arg3].image, ins.arg5, ins.arg6);
             }else if(ins.instr == ROTATED_IMAGE){
-                drawRotatedImage(ins.x - ins.arg8*predefined_image_array[ins.arg3].w/2,
-                                ins.y - ins.arg8*predefined_image_array[ins.arg3].h/2,
+                drawRotatedImage(ins.x - /*ins.arg8*/0*predefined_image_array[ins.arg3].w/2,
+                                ins.y - /*ins.arg8*/0*predefined_image_array[ins.arg3].h/2,
                 predefined_image_array[ins.arg3].h, predefined_image_array[ins.arg3].w,
                 ins.arg4,predefined_image_array[ins.arg3].image);
             }else if(ins.instr == DRAW_LINE){
@@ -175,11 +193,11 @@ static __force_inline void render(){
             }else if(ins.instr == PRINT_LINE){
                 uint8_t which = ins.arg5;
                 if(which > NR_STRINGS) which = NR_STRINGS - 1;
-                printLine(ins.x, ins.y, ins.arg3, ins.arg4, strings[which], ins.arg6, ins.arg7);
+                printLine(ins.x, ins.y, ins.arg3, ins.arg4, render_data_current->strings[which], ins.arg6, ins.arg7);
             }else if(ins.instr == PRINT_LINE_BIG){
                 uint8_t which = ins.arg5;
                 if(which > NR_STRINGS) which = NR_STRINGS - 1;
-                printLine32(ins.x, ins.y, ins.arg3, ins.arg4, strings[which], ins.arg6, ins.arg7);
+                printLine32(ins.x, ins.y, ins.arg3, ins.arg4, render_data_current->strings[which], ins.arg6, ins.arg7);
             }
         }
         /*static int x=120,y=120;
@@ -221,41 +239,92 @@ static __force_inline void render(){
 
 
 void __not_in_flash_func(fifo_rcv_interrupt)() {
+    static int cr_param_index = 0;//-1 means function value, -2,-3 is for string
+    static int in_transfer = 0;
+    static char *stringptr = NULL;
+    static int chars_written;
     // Just record the latest entry
     while (multicore_fifo_rvalid()){
         uint32_t data = multicore_fifo_pop_blocking();
-        int *nr_instr_local = nr_instr==&nr_instr1?&nr_instr2:&nr_instr1;
-        instruction *instruction_list_local = instruction_list==instr1?instr2:instr1;
-        char (*strings_local)[MAX_STRING_LENGTH] = strings==strings1?strings2:strings1;
-        if(data == START_EDIT){
-            *nr_instr_local = 0;
-        }else if(data == SUBMIT_LIST){
-            swap_lists = 1;
-        }else if(data == WRITE_STRING){
-            uint8_t which = multicore_fifo_pop_blocking();
-            if(which > NR_STRINGS) which = NR_STRINGS - 1;
-            int i=0;
-            char c;
-            do{
-                c = multicore_fifo_pop_blocking();
-                strings_local[which][i++]=c;
-            }while(c!='\0' && i!=256);
-        }else{
-            if((*nr_instr_local) == NR_MAX_INSTRUCTIONS){
-                for(int i=0; i<8; i++)multicore_fifo_pop_blocking();
-                return;
+        int write_loc = render_data_write_idx + 1;
+        if(write_loc>=3)write_loc-=3;
+
+        if(in_transfer == 0){
+            if(data == START_EDIT){cnt2=1;
+                //if the fifo is full we overwrite the last element
+                if(write_loc == render_data_read_idx){
+                    render_data_write_idx--;
+                    write_loc--;
+                }
+                in_transfer = 1;
+                cr_param_index = -1;
+                render_data_array[write_loc].nr_instr = 0;
             }
-            instruction_list_local[*nr_instr_local].instr = data;
-            instruction_list_local[*nr_instr_local].x = multicore_fifo_pop_blocking();
-            instruction_list_local[*nr_instr_local].y = multicore_fifo_pop_blocking();
-            instruction_list_local[*nr_instr_local].arg3 = multicore_fifo_pop_blocking();
-            instruction_list_local[*nr_instr_local].arg4 = multicore_fifo_pop_blocking();
-            instruction_list_local[*nr_instr_local].arg5 = multicore_fifo_pop_blocking();
-            instruction_list_local[*nr_instr_local].arg6 = multicore_fifo_pop_blocking();
-            instruction_list_local[*nr_instr_local].arg7 = multicore_fifo_pop_blocking();
-            instruction_list_local[*nr_instr_local].arg8 = multicore_fifo_pop_blocking();
-            (*nr_instr_local)++;
+            continue;
         }
+
+        int *nr_instr_local = &render_data_array[write_loc].nr_instr;
+        instruction_t *instruction_list_local = render_data_array[write_loc].instr_list;
+        char (*strings_local)[MAX_STRING_LENGTH] = render_data_array[write_loc].strings;
+
+        //in transfer
+        if(cr_param_index == -1){cnt2=2;
+            //new command
+            if(data == SUBMIT_LIST){
+                if(in_transfer){
+                    //should never be equal, since we decrement write index if they
+                    //were equal at start
+                    if(write_loc != render_data_read_idx){
+                        cnt2=0;
+            //cnt2++;
+                        render_data_write_idx++;
+                        if(render_data_write_idx >= 3) render_data_write_idx -= 3;
+                    }
+                }
+                in_transfer = 0;
+            }else if(data == WRITE_STRING){
+                cr_param_index = -2;
+            }else{
+                if(*nr_instr_local < NR_MAX_INSTRUCTIONS){
+                    instruction_list_local[*nr_instr_local].instr = data;
+                }
+                cr_param_index++;
+            }
+            continue;
+        }
+        
+        //param !=-1 and in transfer
+        if(cr_param_index >= 0){cnt2=3;
+            if(*nr_instr_local < NR_MAX_INSTRUCTIONS){
+                instruction_list_local[*nr_instr_local].params[cr_param_index] = data;
+            }
+            cr_param_index++;
+            if(cr_param_index == 8){cnt2=4;
+                //next instrucion
+                cr_param_index = -1;
+                (*nr_instr_local)++;
+            }
+        }else{
+            if(cr_param_index == -2){
+                //read string index
+                uint8_t which = data;
+                if(which > NR_STRINGS) which = NR_STRINGS - 1;
+                stringptr = strings_local[which];
+                chars_written = 0;
+                cr_param_index = -3;
+            }else if(cr_param_index == -3){
+                stringptr[chars_written++] = data;
+                if(chars_written == MAX_STRING_LENGTH){
+                    chars_written--;
+                    stringptr[chars_written]='\0';
+                }
+                if(data == '\0'){
+                    cr_param_index = -1;
+                }
+            }
+        }
+
+        
     }
 
     multicore_fifo_clear_irq();

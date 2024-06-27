@@ -16,6 +16,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Data;
 using UnityEngine.Audio;
+using System.Threading;
 public class Test_example_1 : MonoBehaviour
 {
 
@@ -28,13 +29,21 @@ public class Test_example_1 : MonoBehaviour
     public byte g;
     public AudioClip kick, clap, snare, hihat;
     public AudioSource beatsAudioSource, scratchAudioSource, flangeAudioSource;
+    public bool motorModeActive, motorSetDetents;
     public AudioMixer audioMixer;
     public Int32 rotation;
+    public Color flangeColor;
+    public Slider hueSlider;
 
     static HidReport reportIn = null;
     static Queue<HidReport> writeQueue = new Queue<HidReport>();
 
     GameObject vinyl, gkick, gsnare, ghihat, gclap;
+    public Detent[] detents = new Detent[5];
+    public float[] detentAngles = new float[5];
+    float motorOffsetAngle;
+    public GameObject motorCursor;
+    Int32 Speed;
     void Start(){
         //Debug.Log(HidDevices.Enumerate().Count<HidDevice>());
         vinyl = GameObject.Find("Vinyl");
@@ -102,18 +111,26 @@ public class Test_example_1 : MonoBehaviour
             smartKnob.ReadReport(OnReport);
     }
     
+    static int in_transfer = 0;
     private static void OnReportW(bool success){
-        if(writeQueue.Count() == 0) return;
+        if(writeQueue.Count() == 0){
+            in_transfer = 0;
+            return;
+        }
         HidReport rep = writeQueue.Dequeue();
-        if(!ended)
+        if(!ended){
             smartKnob.WriteReport(rep, OnReportW);
+            in_transfer = 1;
+        }
     }
 
     private static void SendReport(HidReport rep){
-        if(writeQueue.Count()==0){
+        writeQueue.Enqueue(rep);
+
+        if(in_transfer==0){
+            in_transfer = 1;
+            writeQueue.Dequeue();
             smartKnob.WriteReport(rep, OnReportW);
-        }else{
-            writeQueue.Enqueue(rep);
         }
     }
     float[] smoother = new float[4];
@@ -140,11 +157,25 @@ public class Test_example_1 : MonoBehaviour
         }
         return prev;
     }
+
+    public void SendHexToLCD(string s){
+        Int32 val = Convert.ToInt32(s,16);
+        Debug.Log(val);
+        HidReport report = new HidReport(65);
+        report.Data[0] = Message.MESSAGE_LCD;
+        report.Data[1] = 1;
+        Message.addElement(val, report.Data, 1);
+        SendReport(report);
+    }
     int prevKick = 0, prevClap = 0, prevHat = 0, prevSnare = 0;
     float prevAngle = 0;
     float prevLEDservice = 0;
     void Update(){
         crTime = Time.timeSinceLevelLoad;
+        flangeColor = Color.HSVToRGB(hueSlider.value,1,1);
+        hueSlider.image.color = flangeColor;
+        float relativeAngle = 360f-rotation*360f/1024/16;
+        relativeAngle -= motorOffsetAngle;
         if(crTime - prevLEDservice > 0.03){
             prevLEDservice = crTime;
             if(beatsAudioSource.mute == false){
@@ -167,19 +198,47 @@ public class Test_example_1 : MonoBehaviour
                 
                 HidReport rep = Message.MessageLED(color_arr, false);
                 SendReport(rep);
+
+                List<HidReport> reports = Message.MessageLCD_Beats();
+                foreach(HidReport hidReport in reports){
+                    SendReport(hidReport);
+                }
             }
             if(flangeAudioSource.mute == false){
                 Color32[] color_arr = new Color32[16];
                 for(int i=0;i<16;i++)
-                    color_arr[i] = new Color32(255,0,255,0);
+                    color_arr[i] = flangeColor;
                 HidReport rep = Message.MessageLED(color_arr, false);
                 SendReport(rep);
+                List<HidReport> reports = Message.MessageLCD_Flange();
+                foreach(HidReport hidReport in reports){
+                    SendReport(hidReport);
+                }
             }
-
-            List<HidReport> reports = Message.MessageLCD(new Color32(255,0,0,0), rotation);
-            foreach(HidReport hidReport in reports){
-                SendReport(hidReport);
+            if(scratchAudioSource.mute == false){
+                List<HidReport> reports = Message.MessageLCD_Vinyl(new Color32(255,0,0,0), rotation);
+                foreach(HidReport hidReport in reports){
+                    /*Debug.Log("Begin report");
+                    int nr = hidReport.Data[1];
+                    for(int i=0; i<=nr; i++){
+                        Debug.Log(hidReport.Data[i*4].ToString()+hidReport.Data[i*4+1]+
+                            hidReport.Data[i*4+2]+ hidReport.Data[i*4+3]);
+                    }*/
+                    SendReport(hidReport);
+                }
             }
+            if(motorModeActive){
+                if(!motorSetDetents){
+                    StartMotor();
+                }
+                List<HidReport> reports = Message.MessageLCD_Motor(detentAngles, relativeAngle);
+                foreach(HidReport hidReport in reports){
+                    SendReport(hidReport);
+                }
+                
+                
+            }
+           
         }
 
         if(reportIn == null) return;
@@ -194,7 +253,7 @@ public class Test_example_1 : MonoBehaviour
         Int32 Rotation = BitConverter.ToInt32(intarray, 0);
         rotation = Rotation;
         Array.Copy(reportIn.Data, 16, intarray, 0, 4);
-        Int32 Speed = BitConverter.ToInt32(intarray, 0);
+        Speed = BitConverter.ToInt32(intarray, 0);
         obj.transform.rotation = Quaternion.Euler(new Vector3(Ytilt/100,0,Xtilt/100));
         prevKick = CheckBeat(Ytilt,1,prevKick,kick,gkick);
         prevClap = CheckBeat(Ytilt,-1,prevClap,clap,gclap);
@@ -214,6 +273,7 @@ public class Test_example_1 : MonoBehaviour
                 vel=1;
             scratchAudioSource.pitch = vel;
         }
+        motorCursor.transform.eulerAngles = new Vector3(0,0,-relativeAngle); 
         //scratchAudioSource.volume = Mathf.Clamp(1f*Press/5000,0,1);
         prevAngle = angle;
 
@@ -228,6 +288,7 @@ public class Test_example_1 : MonoBehaviour
         scratchAudioSource.mute = true;
         flangeAudioSource.mute = true;
         beatsAudioSource.mute = false;
+        motorModeActive = false;
     }
 
     public void StartFlanging(){
@@ -236,6 +297,7 @@ public class Test_example_1 : MonoBehaviour
         scratchAudioSource.mute = true;
         flangeAudioSource.mute = false;
         beatsAudioSource.mute = true;
+        motorModeActive = false;
     }
     public void OnVibrationButton(){
         HidReport rep = Message.MessageMOT(true, 0);
@@ -254,6 +316,39 @@ public class Test_example_1 : MonoBehaviour
         scratchAudioSource.mute = false;
         flangeAudioSource.mute = true;
         beatsAudioSource.mute = true;
+        motorModeActive = false;
     }
 
+    public void StartMotor(){
+        motorSetDetents = false;
+        if(Math.Abs(Speed)<500){
+            for(int i=0; i<5; i++){
+                detentAngles[i] = detents[i].angle;
+            }
+            Array.Sort(detentAngles);
+            //if(!motorModeActive)
+                motorOffsetAngle = 360f-rotation*360f/1024/16;
+            float relativeAngle = (360f-rotation*360f/1024/16)-motorOffsetAngle;
+            if(relativeAngle > 180) relativeAngle-=180;
+            if(relativeAngle < -180) relativeAngle+=180;
+            HidReport mrep = Message.MessageMotDetentList(detentAngles,/*relativeAngle*/0);
+            SendReport(mrep);
+            motorSetDetents = true;
+        }else{
+            HidReport mrep = Message.MessageMOT(false,Message.MOTOR_OFF);
+            SendReport(mrep);
+        }
+        
+        Color32[] color_arr = new Color32[16];
+        for(int i=0;i<16;i++){
+            color_arr[i] = new Color32(0xFF,0x75,0x00,0);
+        }
+        HidReport rep = Message.MessageLED(color_arr, true);
+        SendReport(rep);
+        scratchAudioSource.mute = true;
+        flangeAudioSource.mute = true;
+        beatsAudioSource.mute = true;
+        motorModeActive = true;
+    }
+    
 }

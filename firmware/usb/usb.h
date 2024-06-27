@@ -25,6 +25,7 @@ typedef struct TU_ATTR_PACKED
 
 void (*usb_packetCallback)(uint8_t*, uint8_t) = NULL;
 void (*usb_fill_descriptor_callback)(hid_smartknob_report_t *rep) = NULL;
+void (*on_mouse_pressed_callback)(void) = NULL;
 
 void led_blinking_task(void);
 void cdc_task(void);
@@ -218,10 +219,17 @@ static void send_hid_report(uint8_t report_id)
         if(prev_knob_angle < 0){prev_knob_angle+=360;}
       }
 
+      static uint8_t prevPressed = 0;
+      uint8_t crPressed = Press>PressLimit2;
+      if(crPressed && !prevPressed && on_mouse_pressed_callback != NULL){
+        on_mouse_pressed_callback();
+      }
+      prevPressed = crPressed;
+
       hid_mouse_report_t report =
       {
         .x   = Xval/10, .y = Yval/10, .wheel = -rx, .pan = 0, 
-        .buttons = (Press>PressLimit2?MOUSE_BUTTON_LEFT:0)
+        .buttons = (crPressed?MOUSE_BUTTON_LEFT:0)
       };
 
       tud_hid_report(REPORT_ID_GAMEPAD, &report, sizeof(report));
