@@ -118,7 +118,16 @@ void settings_menu(){
                 multicore_fifo_push_blocking(images[i]);multicore_fifo_push_blocking(15<<16);
                 multicore_fifo_push_blocking(1<<16);multicore_fifo_push_blocking(1<<15);
                 multicore_fifo_push_blocking(0);multicore_fifo_push_blocking(1);
+                if(images[i] == CROSSHAIR_CALIB){
+                    //calibration helper
+                    multicore_fifo_push_blocking(DRAW_CIRCLE);
+                    psh(120+FIX_TO_PX(cosof*150)-Xtilt/64);
+                    psh(-30+FIX_TO_PX(sinof*150)-Ytilt/64);
+                    psh(5<<16);psh(0xfdc0);
+                    psh(0);psh(0);psh(0);psh(0);
+                }
             }
+            
             
             int on_setting;
             float angle_add = anglef + 30;
@@ -138,8 +147,7 @@ void settings_menu(){
 
             if(pressed && !prev_pressed && on_setting!=7){
                 Motor_vibrate();
-                if(on_setting != MENU_CALIB)
-                    in_menu = on_setting;
+                in_menu = on_setting;
                 if(on_setting==MENU_START){
                     break;
                 }
@@ -269,6 +277,28 @@ void settings_menu(){
             multicore_fifo_push_blocking(DRAW_CIRCLE_PART);
             psh(120);psh(119);psh(20<<16);psh(color);
             psh(((*value_to_edit)<<16)/max_value-1);psh(0);psh(0);psh(0);
+
+            push_string(5,s);
+            multicore_fifo_push_blocking(PRINT_LINE_BIG);
+            psh(120-lengthOf(s));psh(25);psh(10000);psh(0);psh(5);psh(0xe2c2);psh(0);psh(0);
+
+            multicore_fifo_push_blocking(SUBMIT_LIST);
+
+            if(pressed && !prev_pressed){
+                Motor_vibrate();
+                in_menu = 0;
+            }
+        }else if(in_menu == MENU_CALIB){
+            char *s="Calibrate";
+            
+
+            multicore_fifo_push_blocking(START_EDIT);
+
+            multicore_fifo_push_blocking(FILL_SCREEN);
+            multicore_fifo_push_blocking(0x1D5E);fill(7);
+
+            multicore_fifo_push_blocking(DRAW_IMAGE);
+            psh(120);psh(120);psh(images[7-in_menu]);psh(15<<16);psh(1<<16);psh(1<<15);psh(0);psh(1);
 
             push_string(5,s);
             multicore_fifo_push_blocking(PRINT_LINE_BIG);
