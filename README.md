@@ -28,7 +28,7 @@ Sistemul dezvoltat reprezintă un dispozitiv pe intrare pentru PC. Acesta este d
 
 
 ## Autor și Coordonator
-student: Vlad plăvăț
+student: Vlad Plăvăț
 coordonator: dr.ing Valentin Stângaciu
 
 
